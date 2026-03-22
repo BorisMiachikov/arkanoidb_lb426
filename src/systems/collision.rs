@@ -1,10 +1,12 @@
 use bevy::prelude::*;
 
 use crate::components::ball::Ball;
+use crate::components::brick::Brick;
 use crate::components::collider::Collider;
 use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
 use crate::components::wall::Wall;
+use crate::resources::score::Score;
 
 /// Сторона столкновения (с точки зрения мяча)
 enum CollisionSide {
@@ -81,6 +83,45 @@ pub fn ball_wall_collision_system(
                             ball_tf.translation.y -= overlap;
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/// Ball ↔ Brick: разрушение блоков и отскок.
+/// Здоровье прочных блоков уменьшается, нулевые — удаляются.
+/// Скорость отражается один раз за кадр.
+pub fn ball_brick_collision_system(
+    mut commands: Commands,
+    mut ball_query: Query<(&mut Velocity, &Transform, &Collider), With<Ball>>,
+    mut brick_query: Query<(Entity, &Transform, &Collider, &mut Brick)>,
+    mut score: ResMut<Score>,
+) {
+    for (mut velocity, ball_tf, ball_col) in &mut ball_query {
+        let ball_pos = ball_tf.translation.truncate();
+        let ball_half = Vec2::new(ball_col.half_width, ball_col.half_height);
+
+        let mut reflected = false;
+
+        for (brick_entity, brick_tf, brick_col, mut brick) in &mut brick_query {
+            let brick_pos = brick_tf.translation.truncate();
+            let brick_half = Vec2::new(brick_col.half_width, brick_col.half_height);
+
+            if let Some(side) = aabb_collision(ball_pos, ball_half, brick_pos, brick_half) {
+                brick.health = brick.health.saturating_sub(1);
+                if brick.health == 0 {
+                    score.value += brick.score_value;
+                    commands.entity(brick_entity).despawn();
+                }
+
+                // Отражаем скорость только один раз за кадр
+                if !reflected {
+                    match side {
+                        CollisionSide::Left | CollisionSide::Right => velocity.x = -velocity.x,
+                        CollisionSide::Top | CollisionSide::Bottom => velocity.y = -velocity.y,
+                    }
+                    reflected = true;
                 }
             }
         }

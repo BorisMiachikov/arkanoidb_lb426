@@ -2,6 +2,7 @@ use bevy::color::palettes::css;
 use bevy::prelude::*;
 
 use crate::components::ball::Ball;
+use crate::components::brick::{Brick, BrickType};
 use crate::components::collider::Collider;
 use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
@@ -22,6 +23,13 @@ pub const BALL_INITIAL_VY: f32 = 350.0;
 
 pub const WALL_THICKNESS: f32 = 16.0;
 
+pub const BRICK_WIDTH: f32 = 72.0;
+pub const BRICK_HEIGHT: f32 = 24.0;
+const BRICK_COLS: usize = 10;
+const BRICK_ROWS: usize = 5;
+const BRICK_GAP: f32 = 4.0;
+const BRICKS_TOP_Y: f32 = 170.0;
+
 /// Создаём ракетку, мяч и стены при входе в состояние Playing
 pub fn spawn_level_entities(
     mut commands: Commands,
@@ -31,6 +39,7 @@ pub fn spawn_level_entities(
     spawn_paddle(&mut commands, &mut meshes, &mut materials);
     spawn_ball(&mut commands, &mut meshes, &mut materials);
     spawn_walls(&mut commands, &mut meshes, &mut materials);
+    spawn_bricks(&mut commands, &mut meshes, &mut materials);
 }
 
 fn spawn_paddle(
@@ -97,4 +106,44 @@ fn spawn_walls(
     ));
 
     // Нижней стены нет — мяч может упасть (TODO Этап 6: триггер потери мяча)
+}
+
+fn spawn_bricks(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+) {
+    // Цвет, здоровье и очки для каждого ряда (сверху вниз)
+    let rows: [(Color, u32, u32); BRICK_ROWS] = [
+        (Color::srgb(0.9, 0.2, 0.2), 2, 200), // красный — прочный
+        (Color::srgb(0.9, 0.5, 0.1), 1, 150), // оранжевый
+        (Color::srgb(0.9, 0.85, 0.1), 1, 100), // жёлтый
+        (Color::srgb(0.2, 0.8, 0.2), 1, 75),  // зелёный
+        (Color::srgb(0.2, 0.7, 0.9), 1, 50),  // голубой
+    ];
+
+    let total_w = BRICK_COLS as f32 * BRICK_WIDTH + (BRICK_COLS - 1) as f32 * BRICK_GAP;
+    let start_x = -total_w / 2.0 + BRICK_WIDTH / 2.0;
+    let step_x = BRICK_WIDTH + BRICK_GAP;
+    let step_y = BRICK_HEIGHT + BRICK_GAP;
+
+    for (row, (color, health, score_value)) in rows.iter().enumerate() {
+        let brick_type = if *health > 1 { BrickType::Strong } else { BrickType::Normal };
+        let y = BRICKS_TOP_Y - row as f32 * step_y;
+
+        for col in 0..BRICK_COLS {
+            let x = start_x + col as f32 * step_x;
+            commands.spawn((
+                Brick {
+                    brick_type,
+                    health: *health,
+                    score_value: *score_value,
+                },
+                Collider::new(BRICK_WIDTH, BRICK_HEIGHT),
+                Mesh2d(meshes.add(Rectangle::new(BRICK_WIDTH, BRICK_HEIGHT))),
+                MeshMaterial2d(materials.add(*color)),
+                Transform::from_xyz(x, y, 0.5),
+            ));
+        }
+    }
 }
