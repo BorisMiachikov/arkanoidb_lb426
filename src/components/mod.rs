@@ -3,6 +3,7 @@ pub mod bomb;
 pub mod bonus;
 pub mod brick;
 pub mod collider;
+pub mod level_entity;
 pub mod paddle;
 pub mod ufo;
 pub mod velocity;

@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use crate::components::ball::Ball;
 use crate::components::brick::{Brick, BrickType};
 use crate::components::collider::Collider;
+use crate::components::level_entity::LevelEntity;
 use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
 use crate::components::wall::Wall;
@@ -30,7 +31,7 @@ const BRICK_ROWS: usize = 5;
 const BRICK_GAP: f32 = 4.0;
 const BRICKS_TOP_Y: f32 = 170.0;
 
-/// Создаём ракетку, мяч и стены при входе в состояние Playing
+/// Создаём ракетку, мяч, стены и блоки при входе в состояние Playing
 pub fn spawn_level_entities(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -42,12 +43,20 @@ pub fn spawn_level_entities(
     spawn_bricks(&mut commands, &mut meshes, &mut materials);
 }
 
+/// Удаляем все сущности уровня при выходе из Playing
+pub fn cleanup_level(mut commands: Commands, query: Query<Entity, With<LevelEntity>>) {
+    for entity in &query {
+        commands.entity(entity).despawn();
+    }
+}
+
 fn spawn_paddle(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn((
+        LevelEntity,
         Paddle::default(),
         Collider::new(PADDLE_WIDTH, PADDLE_HEIGHT),
         Mesh2d(meshes.add(Rectangle::new(PADDLE_WIDTH, PADDLE_HEIGHT))),
@@ -62,6 +71,7 @@ fn spawn_ball(
     materials: &mut ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn((
+        LevelEntity,
         Ball::default(),
         Collider::new(BALL_SIZE, BALL_SIZE),
         Velocity::new(BALL_INITIAL_VX, BALL_INITIAL_VY),
@@ -80,6 +90,7 @@ fn spawn_walls(
 
     // Левая стена
     commands.spawn((
+        LevelEntity,
         Wall,
         Collider::new(WALL_THICKNESS, WINDOW_HEIGHT),
         Mesh2d(meshes.add(Rectangle::new(WALL_THICKNESS, WINDOW_HEIGHT))),
@@ -89,6 +100,7 @@ fn spawn_walls(
 
     // Правая стена
     commands.spawn((
+        LevelEntity,
         Wall,
         Collider::new(WALL_THICKNESS, WINDOW_HEIGHT),
         Mesh2d(meshes.add(Rectangle::new(WALL_THICKNESS, WINDOW_HEIGHT))),
@@ -98,14 +110,13 @@ fn spawn_walls(
 
     // Верхняя стена
     commands.spawn((
+        LevelEntity,
         Wall,
         Collider::new(WINDOW_WIDTH, WALL_THICKNESS),
         Mesh2d(meshes.add(Rectangle::new(WINDOW_WIDTH, WALL_THICKNESS))),
         MeshMaterial2d(materials.add(wall_color)),
         Transform::from_xyz(0.0, HALF_H - WALL_THICKNESS / 2.0, 0.0),
     ));
-
-    // Нижней стены нет — мяч может упасть (TODO Этап 6: триггер потери мяча)
 }
 
 fn spawn_bricks(
@@ -113,7 +124,6 @@ fn spawn_bricks(
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<ColorMaterial>>,
 ) {
-    // Цвет, здоровье и очки для каждого ряда (сверху вниз)
     let rows: [(Color, u32, u32); BRICK_ROWS] = [
         (Color::srgb(0.9, 0.2, 0.2), 2, 200), // красный — прочный
         (Color::srgb(0.9, 0.5, 0.1), 1, 150), // оранжевый
@@ -134,11 +144,8 @@ fn spawn_bricks(
         for col in 0..BRICK_COLS {
             let x = start_x + col as f32 * step_x;
             commands.spawn((
-                Brick {
-                    brick_type,
-                    health: *health,
-                    score_value: *score_value,
-                },
+                LevelEntity,
+                Brick { brick_type, health: *health, score_value: *score_value },
                 Collider::new(BRICK_WIDTH, BRICK_HEIGHT),
                 Mesh2d(meshes.add(Rectangle::new(BRICK_WIDTH, BRICK_HEIGHT))),
                 MeshMaterial2d(materials.add(*color)),
