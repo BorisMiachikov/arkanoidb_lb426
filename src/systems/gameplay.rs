@@ -1,33 +1,33 @@
 use bevy::prelude::*;
 
-use crate::components::ball::Ball;
+use crate::components::ball::{Ball, BallStuck};
 use crate::components::brick::Brick;
 use crate::components::velocity::Velocity;
 use crate::resources::game_state::GameState;
 use crate::resources::score::{Lives, Score};
-use crate::setup::level::{
-    BALL_INITIAL_VX, BALL_INITIAL_VY, BALL_SIZE, HALF_H, PADDLE_HEIGHT, PADDLE_Y,
-};
+use crate::setup::level::HALF_H;
 
-/// Мяч упал за нижнюю границу — теряем жизнь и сбрасываем мяч.
-/// При 0 жизней — переход в GameOver.
+/// Мяч упал за нижнюю границу — теряем жизнь.
+/// При наличии жизней — мяч прилипает к ракетке (BallStuck).
+/// При 0 жизней — GameOver.
 pub fn check_ball_lost_system(
-    mut ball_query: Query<(&mut Transform, &mut Velocity), With<Ball>>,
+    mut commands: Commands,
+    mut ball_query: Query<(Entity, &mut Transform, &mut Velocity), With<Ball>>,
     mut lives: ResMut<Lives>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    for (mut transform, mut velocity) in &mut ball_query {
-        if transform.translation.y < -(HALF_H + BALL_SIZE) {
+    for (ball_entity, mut transform, mut velocity) in &mut ball_query {
+        if transform.translation.y < -(HALF_H + 20.0) {
             lives.count = lives.count.saturating_sub(1);
 
             if lives.count == 0 {
                 next_state.set(GameState::GameOver);
             } else {
-                // Сброс мяча над ракеткой
+                // Останавливаем мяч и прилепляем к ракетке
+                velocity.x = 0.0;
+                velocity.y = 0.0;
                 transform.translation.x = 0.0;
-                transform.translation.y = PADDLE_Y + PADDLE_HEIGHT + BALL_SIZE;
-                velocity.x = BALL_INITIAL_VX;
-                velocity.y = BALL_INITIAL_VY;
+                commands.entity(ball_entity).insert(BallStuck);
             }
         }
     }
@@ -58,7 +58,7 @@ pub fn handle_game_over_system(
     }
 }
 
-/// В состоянии LevelComplete: Enter/Space → следующий уровень (рестарт)
+/// В состоянии LevelComplete: Enter/Space → следующий уровень
 pub fn handle_level_complete_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,

@@ -1,7 +1,7 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
 
-use crate::components::ball::Ball;
+use crate::components::ball::{Ball, BallStuck};
 use crate::components::brick::{Brick, BrickType};
 use crate::components::collider::Collider;
 use crate::components::level_entity::LevelEntity;
@@ -73,8 +73,9 @@ fn spawn_ball(
     commands.spawn((
         LevelEntity,
         Ball::default(),
+        BallStuck,
         Collider::new(BALL_SIZE, BALL_SIZE),
-        Velocity::new(BALL_INITIAL_VX, BALL_INITIAL_VY),
+        Velocity::new(0.0, 0.0),
         Mesh2d(meshes.add(Circle::new(BALL_SIZE / 2.0))),
         MeshMaterial2d(materials.add(Color::from(css::WHITE))),
         Transform::from_xyz(0.0, PADDLE_Y + PADDLE_HEIGHT + BALL_SIZE, 1.0),

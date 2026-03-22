@@ -11,3 +11,7 @@ impl Default for Ball {
         Self { radius: 10.0 }
     }
 }
+
+/// Маркер: мяч прилипший к ракетке, ждёт запуска (Пробел)
+#[derive(Component)]
+pub struct BallStuck;
