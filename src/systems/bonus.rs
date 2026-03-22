@@ -95,10 +95,13 @@ pub fn update_bonus_effects_system(
     time: Res<Time>,
     mut paddle_grow_query: Query<
         (Entity, &mut Transform, &mut Collider, &mut PaddleGrowEffect),
-        With<Paddle>,
+        (With<Paddle>, Without<Ball>),
     >,
-    mut sticky_query: Query<(Entity, &mut StickyEffect), With<Paddle>>,
-    mut ball_grow_query: Query<(Entity, &mut Transform, &mut Collider, &mut BallGrowEffect), With<Ball>>,
+    mut sticky_query: Query<(Entity, &mut StickyEffect), (With<Paddle>, Without<Ball>)>,
+    mut ball_grow_query: Query<
+        (Entity, &mut Transform, &mut Collider, &mut BallGrowEffect),
+        (With<Ball>, Without<Paddle>),
+    >,
 ) {
     let dt = time.delta();
 
