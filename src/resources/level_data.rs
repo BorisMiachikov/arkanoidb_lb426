@@ -3,10 +3,16 @@ pub struct LevelConfig {
     pub ball_speed_multiplier: f32,
     /// Сетка блоков: 0 = пусто, 1 = обычный, 2 = прочный (2 удара)
     pub grid: &'static [&'static [u8]],
+    /// Позиции спавна НЛО (x, y)
+    pub ufos: &'static [(f32, f32)],
+    /// Скорость НЛО
+    pub ufo_speed: f32,
+    /// Интервал сброса бомб (сек)
+    pub ufo_bomb_interval: f32,
 }
 
 pub const LEVELS: &[LevelConfig] = &[
-    // Уровень 1: классический — 5 рядов, все блоки
+    // Уровень 1: классический — без НЛО
     LevelConfig {
         ball_speed_multiplier: 1.0,
         grid: &[
@@ -16,8 +22,11 @@ pub const LEVELS: &[LevelConfig] = &[
             &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
             &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         ],
+        ufos: &[],
+        ufo_speed: 0.0,
+        ufo_bomb_interval: 0.0,
     },
-    // Уровень 2: шахматный паттерн, скорость +25%
+    // Уровень 2: шахматный паттерн + 1 НЛО
     LevelConfig {
         ball_speed_multiplier: 1.25,
         grid: &[
@@ -28,8 +37,11 @@ pub const LEVELS: &[LevelConfig] = &[
             &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
             &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         ],
+        ufos: &[(0.0, -30.0)],
+        ufo_speed: 130.0,
+        ufo_bomb_interval: 4.0,
     },
-    // Уровень 3: пирамида, скорость +50%
+    // Уровень 3: пирамида + 2 НЛО
     LevelConfig {
         ball_speed_multiplier: 1.5,
         grid: &[
@@ -40,5 +52,8 @@ pub const LEVELS: &[LevelConfig] = &[
             &[0, 0, 0, 1, 2, 2, 1, 0, 0, 0],
             &[0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
         ],
+        ufos: &[(-180.0, -30.0), (180.0, -30.0)],
+        ufo_speed: 170.0,
+        ufo_bomb_interval: 3.0,
     },
 ];

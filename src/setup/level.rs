@@ -3,12 +3,13 @@ use bevy::prelude::*;
 
 use crate::components::ball::{Ball, BallStuck};
 use crate::components::brick::{Brick, BrickType};
+use crate::components::ufo::Ufo;
 use crate::components::collider::Collider;
 use crate::components::level_entity::LevelEntity;
 use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
 use crate::components::wall::Wall;
-use crate::resources::level_data::LEVELS;
+use crate::resources::level_data::{LevelConfig, LEVELS};
 use crate::resources::score::{BallSpeedMultiplier, CurrentLevel};
 
 pub const WINDOW_WIDTH: f32 = 800.0;
@@ -48,6 +49,7 @@ pub fn spawn_level_entities(
     spawn_ball(&mut commands, &mut meshes, &mut materials);
     spawn_walls(&mut commands, &mut meshes, &mut materials);
     spawn_bricks(&mut commands, &mut meshes, &mut materials, config.grid);
+    spawn_ufos(&mut commands, &mut meshes, &mut materials, config);
 }
 
 /// Удаляем все сущности уровня при выходе из Playing
@@ -117,6 +119,27 @@ fn spawn_walls(
         MeshMaterial2d(materials.add(wall_color)),
         Transform::from_xyz(0.0, HALF_H - WALL_THICKNESS / 2.0, 0.0),
     ));
+}
+
+fn spawn_ufos(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    config: &LevelConfig,
+) {
+    const UFO_W: f32 = 60.0;
+    const UFO_H: f32 = 24.0;
+
+    for &(x, y) in config.ufos {
+        commands.spawn((
+            LevelEntity,
+            Ufo::new(config.ufo_speed, config.ufo_bomb_interval),
+            Collider::new(UFO_W, UFO_H),
+            Mesh2d(meshes.add(Rectangle::new(UFO_W, UFO_H))),
+            MeshMaterial2d(materials.add(Color::srgb(0.8, 0.2, 0.8))),
+            Transform::from_xyz(x, y, 1.0),
+        ));
+    }
 }
 
 fn spawn_bricks(
