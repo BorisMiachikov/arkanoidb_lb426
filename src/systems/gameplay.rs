@@ -5,7 +5,7 @@ use crate::components::brick::Brick;
 use crate::components::velocity::Velocity;
 use crate::resources::game_state::GameState;
 use crate::resources::level_data::LEVELS;
-use crate::resources::score::{CurrentLevel, Lives, Score};
+use crate::resources::score::{CurrentLevel, DebugSkipPending, Lives, Score};
 use crate::setup::level::HALF_H;
 
 /// Мяч упал за нижнюю границу — теряем жизнь.
@@ -60,17 +60,31 @@ pub fn handle_game_over_system(
     }
 }
 
-/// DEBUG: NumpadMultiply (*) → принудительный переход на следующий уровень
+/// DEBUG: NumpadMultiply (*) → переход на следующий уровень через LevelComplete,
+/// чтобы OnExit(Playing) запустил cleanup_level, а OnEnter(Playing) — spawn_level_entities.
 pub fn debug_skip_level_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
     mut current_level: ResMut<CurrentLevel>,
+    mut skip_pending: ResMut<DebugSkipPending>,
 ) {
     if keys.just_pressed(KeyCode::NumpadMultiply) {
         current_level.number += 1;
         if current_level.number as usize >= LEVELS.len() {
             current_level.number = 0;
         }
+        skip_pending.0 = true;
+        next_state.set(GameState::LevelComplete);
+    }
+}
+
+/// DEBUG: автоматически продолжает из LevelComplete если выставлен флаг DebugSkipPending
+pub fn debug_auto_advance_system(
+    mut next_state: ResMut<NextState<GameState>>,
+    mut skip_pending: ResMut<DebugSkipPending>,
+) {
+    if skip_pending.0 {
+        skip_pending.0 = false;
         next_state.set(GameState::Playing);
     }
 }

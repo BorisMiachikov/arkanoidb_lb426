@@ -24,6 +24,10 @@ pub struct CurrentLevel {
     pub number: u32,
 }
 
+/// Ресурс: флаг отладочного пропуска уровня (автоматический переход из LevelComplete)
+#[derive(Resource, Default)]
+pub struct DebugSkipPending(pub bool);
+
 /// Ресурс: множитель скорости мяча для текущего уровня
 #[derive(Resource, Debug)]
 pub struct BallSpeedMultiplier(pub f32);
