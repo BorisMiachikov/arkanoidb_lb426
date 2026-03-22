@@ -4,7 +4,8 @@ use crate::components::ball::{Ball, BallStuck};
 use crate::components::brick::Brick;
 use crate::components::velocity::Velocity;
 use crate::resources::game_state::GameState;
-use crate::resources::score::{Lives, Score};
+use crate::resources::level_data::LEVELS;
+use crate::resources::score::{CurrentLevel, Lives, Score};
 use crate::setup::level::HALF_H;
 
 /// Мяч упал за нижнюю границу — теряем жизнь.
@@ -23,7 +24,6 @@ pub fn check_ball_lost_system(
             if lives.count == 0 {
                 next_state.set(GameState::GameOver);
             } else {
-                // Останавливаем мяч и прилепляем к ракетке
                 velocity.x = 0.0;
                 velocity.y = 0.0;
                 transform.translation.x = 0.0;
@@ -44,16 +44,18 @@ pub fn check_win_condition_system(
     }
 }
 
-/// В состоянии GameOver: Enter/Space → рестарт
+/// В состоянии GameOver: Enter/Space → рестарт с первого уровня
 pub fn handle_game_over_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
     mut score: ResMut<Score>,
     mut lives: ResMut<Lives>,
+    mut current_level: ResMut<CurrentLevel>,
 ) {
     if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space) {
         score.value = 0;
         lives.count = 3;
+        current_level.number = 0;
         next_state.set(GameState::Playing);
     }
 }
@@ -62,8 +64,14 @@ pub fn handle_game_over_system(
 pub fn handle_level_complete_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut current_level: ResMut<CurrentLevel>,
 ) {
     if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space) {
+        current_level.number += 1;
+        // После последнего уровня — начинаем сначала
+        if current_level.number as usize >= LEVELS.len() {
+            current_level.number = 0;
+        }
         next_state.set(GameState::Playing);
     }
 }

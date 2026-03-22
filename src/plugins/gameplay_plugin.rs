@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::resources::game_state::GameState;
-use crate::resources::score::{CurrentLevel, Lives, Score};
+use crate::resources::score::{BallSpeedMultiplier, CurrentLevel, Lives, Score};
 use crate::systems::gameplay::{
     check_ball_lost_system, check_win_condition_system, handle_game_over_system,
     handle_level_complete_system,
@@ -15,6 +15,7 @@ impl Plugin for GameplayPlugin {
         app.init_resource::<Score>();
         app.init_resource::<Lives>();
         app.init_resource::<CurrentLevel>();
+        app.init_resource::<BallSpeedMultiplier>();
 
         // Сразу переходим в Playing (до реализации главного меню в Этапе 12)
         app.add_systems(Startup, |mut next_state: ResMut<NextState<GameState>>| {

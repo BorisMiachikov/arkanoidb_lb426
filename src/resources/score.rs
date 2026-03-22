@@ -23,3 +23,13 @@ impl Default for Lives {
 pub struct CurrentLevel {
     pub number: u32,
 }
+
+/// Ресурс: множитель скорости мяча для текущего уровня
+#[derive(Resource, Debug)]
+pub struct BallSpeedMultiplier(pub f32);
+
+impl Default for BallSpeedMultiplier {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}

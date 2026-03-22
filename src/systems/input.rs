@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::components::ball::{Ball, BallStuck};
 use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
+use crate::resources::score::BallSpeedMultiplier;
 use crate::setup::level::{BALL_INITIAL_VX, BALL_INITIAL_VY, BALL_SIZE, PADDLE_HEIGHT, PADDLE_Y};
 
 const HALF_WINDOW_WIDTH: f32 = 400.0;
@@ -37,6 +38,7 @@ pub fn paddle_input_system(
 pub fn ball_stuck_system(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
+    speed_mul: Res<BallSpeedMultiplier>,
     mut ball_query: Query<(Entity, &mut Transform, &mut Velocity), (With<Ball>, With<BallStuck>)>,
     paddle_query: Query<&Transform, (With<Paddle>, Without<Ball>)>,
 ) {
@@ -53,16 +55,16 @@ pub fn ball_stuck_system(
         if keys.just_pressed(KeyCode::Space) {
             commands.entity(ball_entity).remove::<BallStuck>();
 
-            // Угол зависит от направления движения ракетки в момент запуска
+            let m = speed_mul.0;
             let vx = if keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft) {
-                -BALL_INITIAL_VX
+                -BALL_INITIAL_VX * m
             } else if keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight) {
-                BALL_INITIAL_VX
+                BALL_INITIAL_VX * m
             } else {
                 0.0
             };
             velocity.x = vx;
-            velocity.y = BALL_INITIAL_VY;
+            velocity.y = BALL_INITIAL_VY * m;
         }
     }
 }

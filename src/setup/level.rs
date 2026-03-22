@@ -8,6 +8,8 @@ use crate::components::level_entity::LevelEntity;
 use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
 use crate::components::wall::Wall;
+use crate::resources::level_data::LEVELS;
+use crate::resources::score::{BallSpeedMultiplier, CurrentLevel};
 
 pub const WINDOW_WIDTH: f32 = 800.0;
 pub const WINDOW_HEIGHT: f32 = 600.0;
@@ -26,21 +28,26 @@ pub const WALL_THICKNESS: f32 = 16.0;
 
 pub const BRICK_WIDTH: f32 = 72.0;
 pub const BRICK_HEIGHT: f32 = 24.0;
-const BRICK_COLS: usize = 10;
-const BRICK_ROWS: usize = 5;
 const BRICK_GAP: f32 = 4.0;
 const BRICKS_TOP_Y: f32 = 170.0;
 
-/// Создаём ракетку, мяч, стены и блоки при входе в состояние Playing
+/// Создаём сущности уровня — читает конфиг из CurrentLevel
 pub fn spawn_level_entities(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    current_level: Res<CurrentLevel>,
+    mut speed_multiplier: ResMut<BallSpeedMultiplier>,
 ) {
+    let level_idx = (current_level.number as usize).min(LEVELS.len() - 1);
+    let config = &LEVELS[level_idx];
+
+    speed_multiplier.0 = config.ball_speed_multiplier;
+
     spawn_paddle(&mut commands, &mut meshes, &mut materials);
     spawn_ball(&mut commands, &mut meshes, &mut materials);
     spawn_walls(&mut commands, &mut meshes, &mut materials);
-    spawn_bricks(&mut commands, &mut meshes, &mut materials);
+    spawn_bricks(&mut commands, &mut meshes, &mut materials, config.grid);
 }
 
 /// Удаляем все сущности уровня при выходе из Playing
@@ -89,30 +96,22 @@ fn spawn_walls(
 ) {
     let wall_color = Color::srgb(0.4, 0.4, 0.5);
 
-    // Левая стена
     commands.spawn((
-        LevelEntity,
-        Wall,
+        LevelEntity, Wall,
         Collider::new(WALL_THICKNESS, WINDOW_HEIGHT),
         Mesh2d(meshes.add(Rectangle::new(WALL_THICKNESS, WINDOW_HEIGHT))),
         MeshMaterial2d(materials.add(wall_color)),
         Transform::from_xyz(-HALF_W + WALL_THICKNESS / 2.0, 0.0, 0.0),
     ));
-
-    // Правая стена
     commands.spawn((
-        LevelEntity,
-        Wall,
+        LevelEntity, Wall,
         Collider::new(WALL_THICKNESS, WINDOW_HEIGHT),
         Mesh2d(meshes.add(Rectangle::new(WALL_THICKNESS, WINDOW_HEIGHT))),
         MeshMaterial2d(materials.add(wall_color)),
         Transform::from_xyz(HALF_W - WALL_THICKNESS / 2.0, 0.0, 0.0),
     ));
-
-    // Верхняя стена
     commands.spawn((
-        LevelEntity,
-        Wall,
+        LevelEntity, Wall,
         Collider::new(WINDOW_WIDTH, WALL_THICKNESS),
         Mesh2d(meshes.add(Rectangle::new(WINDOW_WIDTH, WALL_THICKNESS))),
         MeshMaterial2d(materials.add(wall_color)),
@@ -124,32 +123,49 @@ fn spawn_bricks(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<ColorMaterial>>,
+    grid: &[&[u8]],
 ) {
-    let rows: [(Color, u32, u32); BRICK_ROWS] = [
-        (Color::srgb(0.9, 0.2, 0.2), 2, 200), // красный — прочный
-        (Color::srgb(0.9, 0.5, 0.1), 1, 150), // оранжевый
-        (Color::srgb(0.9, 0.85, 0.1), 1, 100), // жёлтый
-        (Color::srgb(0.2, 0.8, 0.2), 1, 75),  // зелёный
-        (Color::srgb(0.2, 0.7, 0.9), 1, 50),  // голубой
+    // Цвета рядов для обычных блоков (тип 1)
+    let row_colors = [
+        Color::srgb(0.2, 0.7, 0.9), // голубой
+        Color::srgb(0.2, 0.8, 0.2), // зелёный
+        Color::srgb(0.9, 0.85, 0.1), // жёлтый
+        Color::srgb(0.9, 0.5, 0.1), // оранжевый
+        Color::srgb(0.7, 0.3, 0.9), // фиолетовый
+        Color::srgb(0.2, 0.7, 0.9), // повтор
     ];
+    let strong_color = Color::srgb(0.9, 0.2, 0.2); // красный — прочный
 
-    let total_w = BRICK_COLS as f32 * BRICK_WIDTH + (BRICK_COLS - 1) as f32 * BRICK_GAP;
+    let cols = grid.iter().map(|r| r.len()).max().unwrap_or(0);
+    let total_w = cols as f32 * BRICK_WIDTH + (cols.saturating_sub(1)) as f32 * BRICK_GAP;
     let start_x = -total_w / 2.0 + BRICK_WIDTH / 2.0;
     let step_x = BRICK_WIDTH + BRICK_GAP;
     let step_y = BRICK_HEIGHT + BRICK_GAP;
 
-    for (row, (color, health, score_value)) in rows.iter().enumerate() {
-        let brick_type = if *health > 1 { BrickType::Strong } else { BrickType::Normal };
+    for (row, row_data) in grid.iter().enumerate() {
         let y = BRICKS_TOP_Y - row as f32 * step_y;
 
-        for col in 0..BRICK_COLS {
+        for (col, &cell) in row_data.iter().enumerate() {
+            if cell == 0 {
+                continue;
+            }
             let x = start_x + col as f32 * step_x;
+            let (brick_type, health, score_value, color) = match cell {
+                2 => (BrickType::Strong, 2u32, 200u32, strong_color),
+                _ => (
+                    BrickType::Normal,
+                    1,
+                    100,
+                    row_colors[row % row_colors.len()],
+                ),
+            };
+
             commands.spawn((
                 LevelEntity,
-                Brick { brick_type, health: *health, score_value: *score_value },
+                Brick { brick_type, health, score_value },
                 Collider::new(BRICK_WIDTH, BRICK_HEIGHT),
                 Mesh2d(meshes.add(Rectangle::new(BRICK_WIDTH, BRICK_HEIGHT))),
-                MeshMaterial2d(materials.add(*color)),
+                MeshMaterial2d(materials.add(color)),
                 Transform::from_xyz(x, y, 0.5),
             ));
         }
