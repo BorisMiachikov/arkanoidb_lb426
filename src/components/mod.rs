@@ -1,6 +1,7 @@
 pub mod ball;
 pub mod bomb;
 pub mod bonus;
+pub mod bonus_effects;
 pub mod brick;
 pub mod collider;
 pub mod level_entity;
