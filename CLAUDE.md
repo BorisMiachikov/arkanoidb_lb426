@@ -9,15 +9,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Команды
 
 ```bash
-# Первичная инициализация (если ещё не создан cargo-проект)
-cargo new arkanoid_lb426
-cargo add bevy@0.15
-
 # Сборка и запуск
 cargo run
 cargo build --release
 
-# Быстрая сборка для разработки (Bevy dynamic linking)
+# Быстрая сборка для разработки
 cargo run --features bevy/dynamic_linking
 
 # Проверка и тесты
@@ -32,52 +28,97 @@ cargo clippy
 
 | Плагин | Ответственность |
 |--------|----------------|
-| `GameplayPlugin` | Правила игры, жизни, победа/поражение |
-| `PhysicsPlugin` | Движение сущностей и AABB-коллизии |
-| `UIPlugin` | Счёт, уровень, жизни, активные бонусы |
-| `LevelPlugin` | Загрузка и прогрессия уровней |
+| `GameplayPlugin` | Правила игры, жизни, победа/поражение, отладочные клавиши |
+| `PhysicsPlugin` | Движение, ввод и все AABB-коллизии |
+| `UIPlugin` | Счёт, уровень, жизни, активные бонусы *(Этап 11)* |
+| `LevelPlugin` | Камера, загрузка и очистка уровней |
 
 ### Структура `src/`
 
 ```
 src/
-├── main.rs               # Точка входа, регистрация плагинов
-├── app.rs                # Настройка App
+├── main.rs               # Точка входа
+├── app.rs                # Настройка App, плагины, ClearColor
 ├── plugins/              # Bevy-плагины
 ├── components/           # ECS-компоненты (только данные, без логики)
-│   ├── paddle.rs, ball.rs, brick.rs
-│   ├── velocity.rs, collider.rs
-│   └── bonus.rs, ufo.rs, bomb.rs
-├── systems/              # Системы (чистая логика, без состояния)
-│   ├── input.rs, movement.rs, collision.rs
-│   └── gameplay.rs, bonus.rs, ufo.rs
+│   ├── ball.rs           # Ball { radius }, BallStuck (маркер запуска)
+│   ├── brick.rs          # Brick { brick_type, health, score_value }
+│   ├── bonus.rs          # Bonus { bonus_type: BonusType }
+│   ├── bonus_effects.rs  # PaddleGrowEffect, StickyEffect, BallGrowEffect
+│   ├── bomb.rs           # Bomb { damage }
+│   ├── ufo.rs            # Ufo { speed, direction, bomb_timer, health }
+│   ├── paddle.rs         # Paddle { speed }
+│   ├── velocity.rs       # Velocity { x, y }
+│   ├── collider.rs       # Collider { half_width, half_height }
+│   ├── level_entity.rs   # LevelEntity (маркер для очистки уровня)
+│   └── wall.rs           # Wall (маркер)
+├── systems/              # Системы (чистая логика)
+│   ├── input.rs          # paddle_input_system, ball_stuck_system
+│   ├── movement.rs       # apply_velocity_system
+│   ├── collision.rs      # ball_wall/brick/paddle коллизии, дроп бонусов
+│   ├── bonus.rs          # подбор бонусов, применение/откат эффектов
+│   ├── ufo.rs            # движение НЛО, коллизии, бомбы
+│   └── gameplay.rs       # потеря мяча, победа, GameOver, debug skip
 ├── resources/            # Глобальные ресурсы
-│   ├── game_state.rs
-│   └── score.rs
+│   ├── game_state.rs     # GameState enum
+│   ├── score.rs          # Score, Lives, CurrentLevel, BallSpeedMultiplier, DebugSkipPending
+│   └── level_data.rs     # LevelConfig, LEVELS (статические данные уровней)
 └── setup/                # Инициализация сцены
-    ├── camera.rs
-    └── level.rs
+    ├── camera.rs         # spawn_camera
+    └── level.rs          # spawn_level_entities, cleanup_level, константы окна
 ```
 
 ### Игровые состояния
 
 ```
-MainMenu → Playing ↔ Paused → GameOver / LevelComplete
+Startup → Playing ↔ LevelComplete → Playing (следующий уровень)
+                 ↘ GameOver → Playing (рестарт)
+MainMenu, Paused — реализуются в Этапе 12
 ```
 
 ### Физика
 
-Используются **только кастомные AABB-коллизии** — без сторонних физических библиотек (Rapier и т.п.).
+Только **кастомные AABB-коллизии** — без Rapier и других физических библиотек.
 
-Проверяемые пары коллизий:
-- Ball ↔ Paddle, Ball ↔ Brick, Ball ↔ Wall, Ball ↔ UFO
-- Bonus ↔ Paddle (подбор), Bomb ↔ Paddle (урон)
+Пары коллизий:
+- Ball ↔ Wall, Ball ↔ Brick, Ball ↔ Paddle, Ball ↔ UFO
+- Bonus ↔ Paddle (подбор), Bomb ↔ Paddle (урон), Bomb ↔ Brick (бомба исчезает)
+
+### Механики
+
+- **BallStuck** — компонент-маркер: мяч прилипает к ракетке (при старте и после потери жизни). Запуск: Пробел или движение ракетки. Направление зависит от удерживаемой клавиши.
+- **LevelEntity** — все сущности уровня помечаются этим маркером. `OnExit(Playing)` → `cleanup_level` удаляет всё.
+- **НЛО** — уничтожаются за 2 удара мячом, затем респавнятся на случайной высоте (y ∈ [−120, 40]).
+- **Бонусные эффекты** — применяются через `Added<T>`, откатываются по таймеру через `remove::<T>()`.
+- **DebugSkipPending** — флаг-ресурс для двухшагового перехода Playing → LevelComplete → Playing при нажатии `*`.
+
+### Уровни (`level_data.rs`)
+
+Уровень описывается `LevelConfig` с полями:
+- `grid: &[&[u8]]` — сетка блоков (0 = пусто, 1 = Normal, 2 = Strong)
+- `ball_speed_multiplier: f32`
+- `ufos: &[(f32, f32)]` — позиции спавна НЛО
+- `ufo_speed: f32`, `ufo_bomb_interval: f32`
 
 ### Управление
 
-- **A / ←** — ракетка влево
-- **D / →** — ракетка вправо
-- **Пробел** — стрельба (если активен бонус-пулемёт)
+| Клавиша | Действие |
+|---------|----------|
+| A / ← | ракетка влево |
+| D / → | ракетка вправо |
+| Пробел | запуск мяча |
+| `*` Numpad | **[DEBUG]** следующий уровень |
+
+### Важные константы (`setup/level.rs`)
+
+```rust
+WINDOW_WIDTH = 800.0, WINDOW_HEIGHT = 600.0
+HALF_W = 400.0, HALF_H = 300.0
+WALL_THICKNESS = 16.0
+PADDLE_WIDTH = 120.0, PADDLE_Y = -250.0
+BALL_SIZE = 20.0, BALL_INITIAL_VX = 200.0, BALL_INITIAL_VY = 350.0
+BRICK_WIDTH = 72.0, BRICK_HEIGHT = 24.0
+```
 
 ## Принципы разработки
 
@@ -85,3 +126,4 @@ MainMenu → Playing ↔ Paused → GameOver / LevelComplete
 - **Системы** содержат логику, без состояния
 - Минимальная связанность — взаимодействие только через ECS (Query, Res)
 - Следовать этапам из `Roadmap.md` — каждый этап имеет конкретный результат
+- При конфликте Bevy-запросов (B0001) использовать `Without<T>` фильтры
