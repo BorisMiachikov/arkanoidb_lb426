@@ -60,6 +60,21 @@ pub fn handle_game_over_system(
     }
 }
 
+/// DEBUG: NumpadMultiply (*) → принудительный переход на следующий уровень
+pub fn debug_skip_level_system(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut current_level: ResMut<CurrentLevel>,
+) {
+    if keys.just_pressed(KeyCode::NumpadMultiply) {
+        current_level.number += 1;
+        if current_level.number as usize >= LEVELS.len() {
+            current_level.number = 0;
+        }
+        next_state.set(GameState::Playing);
+    }
+}
+
 /// В состоянии LevelComplete: Enter/Space → следующий уровень
 pub fn handle_level_complete_system(
     keys: Res<ButtonInput<KeyCode>>,

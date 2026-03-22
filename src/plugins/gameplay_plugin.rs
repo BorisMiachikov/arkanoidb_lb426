@@ -3,8 +3,8 @@ use bevy::prelude::*;
 use crate::resources::game_state::GameState;
 use crate::resources::score::{BallSpeedMultiplier, CurrentLevel, Lives, Score};
 use crate::systems::gameplay::{
-    check_ball_lost_system, check_win_condition_system, handle_game_over_system,
-    handle_level_complete_system,
+    check_ball_lost_system, check_win_condition_system, debug_skip_level_system,
+    handle_game_over_system, handle_level_complete_system,
 };
 
 /// Плагин: игровые правила, ресурсы, победа/поражение
@@ -25,7 +25,7 @@ impl Plugin for GameplayPlugin {
         // Системы активной игры
         app.add_systems(
             Update,
-            (check_ball_lost_system, check_win_condition_system)
+            (check_ball_lost_system, check_win_condition_system, debug_skip_level_system)
                 .run_if(in_state(GameState::Playing)),
         );
 
