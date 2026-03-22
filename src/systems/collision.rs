@@ -15,7 +15,7 @@ enum CollisionSide {
 }
 
 /// AABB-столкновение двух прямоугольников.
-/// Возвращает сторону, с которой столкнулся объект A (мяч).
+/// Возвращает сторону, с которой столкнулся объект A.
 fn aabb_collision(
     pos_a: Vec2,
     half_a: Vec2,
@@ -44,16 +44,18 @@ fn aabb_collision(
     }
 }
 
-/// Ball ↔ Wall: отскок от стен
+/// Ball ↔ Wall: отскок от стен.
+/// Позиция мяча обновляется после каждой коррекции.
 pub fn ball_wall_collision_system(
     mut ball_query: Query<(&mut Velocity, &mut Transform, &Collider), With<Ball>>,
     wall_query: Query<(&Transform, &Collider), (With<Wall>, Without<Ball>)>,
 ) {
     for (mut velocity, mut ball_tf, ball_col) in &mut ball_query {
-        let ball_pos = ball_tf.translation.truncate();
         let ball_half = Vec2::new(ball_col.half_width, ball_col.half_height);
 
         for (wall_tf, wall_col) in &wall_query {
+            // Читаем актуальную позицию мяча на каждой итерации
+            let ball_pos = ball_tf.translation.truncate();
             let wall_pos = wall_tf.translation.truncate();
             let wall_half = Vec2::new(wall_col.half_width, wall_col.half_height);
 
@@ -61,8 +63,8 @@ pub fn ball_wall_collision_system(
                 match side {
                     CollisionSide::Left | CollisionSide::Right => {
                         velocity.x = -velocity.x;
-                        // Корректируем позицию, чтобы мяч не застрял в стене
-                        let overlap = ball_half.x + wall_half.x - (ball_pos.x - wall_pos.x).abs();
+                        let overlap =
+                            ball_half.x + wall_half.x - (ball_pos.x - wall_pos.x).abs();
                         if ball_pos.x > wall_pos.x {
                             ball_tf.translation.x += overlap;
                         } else {
@@ -71,7 +73,8 @@ pub fn ball_wall_collision_system(
                     }
                     CollisionSide::Top | CollisionSide::Bottom => {
                         velocity.y = -velocity.y;
-                        let overlap = ball_half.y + wall_half.y - (ball_pos.y - wall_pos.y).abs();
+                        let overlap =
+                            ball_half.y + wall_half.y - (ball_pos.y - wall_pos.y).abs();
                         if ball_pos.y > wall_pos.y {
                             ball_tf.translation.y += overlap;
                         } else {
@@ -84,7 +87,9 @@ pub fn ball_wall_collision_system(
     }
 }
 
-/// Ball ↔ Paddle: отскок от ракетки с угловым эффектом
+/// Ball ↔ Paddle: отскок с угловым эффектом.
+/// hit_factor зажат в [-0.8, 0.8] — мяч никогда не летит почти горизонтально.
+/// velocity.y всегда строго положительный после отскока.
 pub fn ball_paddle_collision_system(
     mut ball_query: Query<(&mut Velocity, &mut Transform, &Collider), With<Ball>>,
     paddle_query: Query<(&Transform, &Collider), (With<Paddle>, Without<Ball>)>,
@@ -105,20 +110,31 @@ pub fn ball_paddle_collision_system(
             if let Some(side) = aabb_collision(ball_pos, ball_half, paddle_pos, paddle_half) {
                 match side {
                     CollisionSide::Top | CollisionSide::Bottom => {
-                        // Угол отскока зависит от точки попадания (-1..1)
-                        let hit_factor =
-                            (ball_pos.x - paddle_pos.x) / paddle_half.x;
                         let speed =
                             (velocity.x * velocity.x + velocity.y * velocity.y).sqrt();
-                        velocity.x = hit_factor * speed * 0.75;
-                        velocity.y = (speed * speed - velocity.x * velocity.x)
-                            .abs()
-                            .sqrt();
+
+                        // Нормированная точка удара [-1..1], зажатая до [-0.8..0.8]
+                        // чтобы избежать почти горизонтального отскока
+                        let hit_factor = ((ball_pos.x - paddle_pos.x) / paddle_half.x)
+                            .clamp(-0.8, 0.8);
+
+                        velocity.x = hit_factor * speed;
+                        // Гарантируем минимальную вертикальную составляющую
+                        let vy_sq = (speed * speed - velocity.x * velocity.x).max(0.0);
+                        velocity.y = vy_sq.sqrt().max(speed * 0.4);
+
+                        // Нормируем до исходной скорости
+                        let new_speed =
+                            (velocity.x * velocity.x + velocity.y * velocity.y).sqrt();
+                        if new_speed > 0.0 {
+                            velocity.x = velocity.x / new_speed * speed;
+                            velocity.y = velocity.y / new_speed * speed;
+                        }
 
                         // Выталкиваем мяч над ракеткой
                         let overlap = ball_half.y + paddle_half.y
                             - (ball_pos.y - paddle_pos.y).abs();
-                        ball_tf.translation.y += overlap;
+                        ball_tf.translation.y += overlap.max(0.0);
                     }
                     CollisionSide::Left | CollisionSide::Right => {
                         velocity.x = -velocity.x;
