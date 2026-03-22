@@ -3,9 +3,10 @@ use bevy::prelude::*;
 use crate::components::paddle::Paddle;
 
 const HALF_WINDOW_WIDTH: f32 = 400.0;
+const WALL_THICKNESS: f32 = 16.0;
 const PADDLE_HALF_WIDTH: f32 = 60.0;
-const LEFT_BOUND: f32 = -HALF_WINDOW_WIDTH + PADDLE_HALF_WIDTH;
-const RIGHT_BOUND: f32 = HALF_WINDOW_WIDTH - PADDLE_HALF_WIDTH;
+const LEFT_BOUND: f32 = -HALF_WINDOW_WIDTH + WALL_THICKNESS + PADDLE_HALF_WIDTH;
+const RIGHT_BOUND: f32 = HALF_WINDOW_WIDTH - WALL_THICKNESS - PADDLE_HALF_WIDTH;
 
 /// Обработка ввода с клавиатуры — движение ракетки (A/D или ←/→)
 pub fn paddle_input_system(
