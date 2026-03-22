@@ -11,8 +11,8 @@ use crate::systems::collision::{
 use crate::systems::input::{ball_stuck_system, paddle_input_system};
 use crate::systems::movement::apply_velocity_system;
 use crate::systems::ufo::{
-    ball_ufo_collision_system, bomb_paddle_collision_system, cleanup_fallen_bombs_system,
-    ufo_movement_system,
+    ball_ufo_collision_system, bomb_brick_collision_system, bomb_paddle_collision_system,
+    cleanup_fallen_bombs_system, ufo_movement_system,
 };
 
 /// Плагин: физика — ввод, движение, коллизии, бонусы
@@ -35,6 +35,7 @@ impl Plugin for PhysicsPlugin {
                 update_bonus_effects_system,
                 ufo_movement_system,
                 ball_ufo_collision_system,
+                bomb_brick_collision_system,
                 bomb_paddle_collision_system,
                 cleanup_fallen_bombs_system,
             )

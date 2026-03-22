@@ -1,7 +1,9 @@
+use rand::Rng;
 use bevy::prelude::*;
 
 use crate::components::ball::{Ball, BallStuck};
 use crate::components::bomb::Bomb;
+use crate::components::brick::Brick;
 use crate::components::collider::Collider;
 use crate::components::level_entity::LevelEntity;
 use crate::components::paddle::Paddle;
@@ -56,15 +58,26 @@ pub fn ufo_movement_system(
     }
 }
 
-/// Ball ↔ UFO: мяч отражается как от стены
+const UFO_W: f32 = 60.0;
+const UFO_H: f32 = 24.0;
+/// Диапазон высот для респавна НЛО (y)
+const UFO_RESPAWN_Y_MIN: f32 = -120.0;
+const UFO_RESPAWN_Y_MAX: f32 =   40.0;
+
+/// Ball ↔ UFO: мяч отражается, НЛО теряет здоровье (2 удара = уничтожение + респавн)
 pub fn ball_ufo_collision_system(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     mut ball_query: Query<(&mut Velocity, &mut Transform, &Collider), With<Ball>>,
-    ufo_query: Query<(&Transform, &Collider), (With<Ufo>, Without<Ball>)>,
+    mut ufo_query: Query<(Entity, &Transform, &Collider, &mut Ufo), Without<Ball>>,
 ) {
+    let mut rng = rand::thread_rng();
+
     for (mut velocity, mut ball_tf, ball_col) in &mut ball_query {
         let ball_half = Vec2::new(ball_col.half_width, ball_col.half_height);
 
-        for (ufo_tf, ufo_col) in &ufo_query {
+        for (ufo_entity, ufo_tf, ufo_col, mut ufo) in &mut ufo_query {
             let ball_pos = ball_tf.translation.truncate();
             let ufo_pos = ufo_tf.translation.truncate();
             let ufo_half = Vec2::new(ufo_col.half_width, ufo_col.half_height);
@@ -75,12 +88,32 @@ pub fn ball_ufo_collision_system(
             let overlap_y = ball_half.y + ufo_half.y - dy.abs();
 
             if overlap_x > 0.0 && overlap_y > 0.0 {
+                // Отражение мяча
                 if overlap_x < overlap_y {
                     velocity.x = -velocity.x;
                     ball_tf.translation.x += if dx > 0.0 { overlap_x } else { -overlap_x };
                 } else {
                     velocity.y = -velocity.y;
                     ball_tf.translation.y += if dy > 0.0 { overlap_y } else { -overlap_y };
+                }
+
+                // Урон НЛО
+                ufo.health = ufo.health.saturating_sub(1);
+                if ufo.health == 0 {
+                    let speed = ufo.speed;
+                    let interval = ufo.bomb_timer.duration().as_secs_f32();
+                    commands.entity(ufo_entity).despawn();
+
+                    // Респавн на случайной высоте
+                    let new_y = rng.gen_range(UFO_RESPAWN_Y_MIN..=UFO_RESPAWN_Y_MAX);
+                    commands.spawn((
+                        LevelEntity,
+                        Ufo::new(speed, interval),
+                        Collider::new(UFO_W, UFO_H),
+                        Mesh2d(meshes.add(Rectangle::new(UFO_W, UFO_H))),
+                        MeshMaterial2d(materials.add(Color::srgb(0.8, 0.2, 0.8))),
+                        Transform::from_xyz(0.0, new_y, 1.0),
+                    ));
                 }
             }
         }
@@ -123,6 +156,31 @@ pub fn bomb_paddle_collision_system(
                     ball_tf.translation.x = 0.0;
                     commands.entity(ball_entity).insert(BallStuck);
                 }
+            }
+        }
+    }
+}
+
+/// Bomb ↔ Brick: бомба попадает в блок — бомба исчезает
+pub fn bomb_brick_collision_system(
+    mut commands: Commands,
+    bomb_query: Query<(Entity, &Transform, &Collider), With<Bomb>>,
+    brick_query: Query<(&Transform, &Collider), With<Brick>>,
+) {
+    'bombs: for (bomb_entity, bomb_tf, bomb_col) in &bomb_query {
+        let bomb_pos = bomb_tf.translation.truncate();
+        let bomb_half = Vec2::new(bomb_col.half_width, bomb_col.half_height);
+
+        for (brick_tf, brick_col) in &brick_query {
+            let brick_pos = brick_tf.translation.truncate();
+            let brick_half = Vec2::new(brick_col.half_width, brick_col.half_height);
+
+            let hit = (bomb_pos.x - brick_pos.x).abs() < bomb_half.x + brick_half.x
+                && (bomb_pos.y - brick_pos.y).abs() < bomb_half.y + brick_half.y;
+
+            if hit {
+                commands.entity(bomb_entity).despawn();
+                continue 'bombs;
             }
         }
     }

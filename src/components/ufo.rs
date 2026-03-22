@@ -6,6 +6,7 @@ pub struct Ufo {
     pub speed: f32,
     pub direction: f32,       // 1.0 = вправо, -1.0 = влево
     pub bomb_timer: Timer,
+    pub health: u32,          // хитпоинты (2 удара)
 }
 
 impl Ufo {
@@ -14,6 +15,7 @@ impl Ufo {
             speed,
             direction: 1.0,
             bomb_timer: Timer::from_seconds(bomb_interval_secs, TimerMode::Repeating),
+            health: 2,
         }
     }
 }
