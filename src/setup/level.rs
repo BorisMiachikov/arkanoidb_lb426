@@ -5,6 +5,7 @@ use crate::components::ball::Ball;
 use crate::components::collider::Collider;
 use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
+use crate::components::wall::Wall;
 
 pub const WINDOW_WIDTH: f32 = 800.0;
 pub const WINDOW_HEIGHT: f32 = 600.0;
@@ -70,6 +71,7 @@ fn spawn_walls(
 
     // Левая стена
     commands.spawn((
+        Wall,
         Collider::new(WALL_THICKNESS, WINDOW_HEIGHT),
         Mesh2d(meshes.add(Rectangle::new(WALL_THICKNESS, WINDOW_HEIGHT))),
         MeshMaterial2d(materials.add(wall_color)),
@@ -78,6 +80,7 @@ fn spawn_walls(
 
     // Правая стена
     commands.spawn((
+        Wall,
         Collider::new(WALL_THICKNESS, WINDOW_HEIGHT),
         Mesh2d(meshes.add(Rectangle::new(WALL_THICKNESS, WINDOW_HEIGHT))),
         MeshMaterial2d(materials.add(wall_color)),
@@ -86,6 +89,7 @@ fn spawn_walls(
 
     // Верхняя стена
     commands.spawn((
+        Wall,
         Collider::new(WINDOW_WIDTH, WALL_THICKNESS),
         Mesh2d(meshes.add(Rectangle::new(WINDOW_WIDTH, WALL_THICKNESS))),
         MeshMaterial2d(materials.add(wall_color)),

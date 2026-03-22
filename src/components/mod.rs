@@ -6,3 +6,4 @@ pub mod collider;
 pub mod paddle;
 pub mod ufo;
 pub mod velocity;
+pub mod wall;
