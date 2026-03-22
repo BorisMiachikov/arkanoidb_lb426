@@ -24,6 +24,9 @@ pub fn build_app() -> App {
 
     app.init_state::<GameState>();
 
+    // Тёмно-синий фон — контраст для белого мяча и серых стен
+    app.insert_resource(ClearColor(Color::srgb(0.05, 0.05, 0.15)));
+
     app.add_plugins((GameplayPlugin, PhysicsPlugin, UiPlugin, LevelPlugin));
 
     app

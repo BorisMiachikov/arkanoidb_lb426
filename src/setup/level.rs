@@ -67,7 +67,7 @@ fn spawn_walls(
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<ColorMaterial>>,
 ) {
-    let wall_color = Color::from(css::DARK_GRAY);
+    let wall_color = Color::srgb(0.4, 0.4, 0.5);
 
     // Левая стена
     commands.spawn((
