@@ -28,6 +28,10 @@ pub struct CurrentLevel {
 #[derive(Resource, Default)]
 pub struct DebugSkipPending(pub bool);
 
+/// Ресурс: игра на паузе (не меняет GameState)
+#[derive(Resource, Default)]
+pub struct Paused(pub bool);
+
 /// Ресурс: множитель скорости мяча для текущего уровня
 #[derive(Resource, Debug)]
 pub struct BallSpeedMultiplier(pub f32);

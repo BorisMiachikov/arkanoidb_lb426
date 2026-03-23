@@ -1,24 +1,19 @@
 use bevy::prelude::*;
 
 use crate::components::ball::{Ball, BallStuck};
+use crate::components::collider::Collider;
 use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
 use crate::resources::score::BallSpeedMultiplier;
-use crate::setup::level::{BALL_INITIAL_VX, BALL_INITIAL_VY, BALL_SIZE, PADDLE_HEIGHT, PADDLE_Y};
-
-const HALF_WINDOW_WIDTH: f32 = 400.0;
-const WALL_THICKNESS: f32 = 16.0;
-const PADDLE_HALF_WIDTH: f32 = 60.0;
-const LEFT_BOUND: f32 = -HALF_WINDOW_WIDTH + WALL_THICKNESS + PADDLE_HALF_WIDTH;
-const RIGHT_BOUND: f32 = HALF_WINDOW_WIDTH - WALL_THICKNESS - PADDLE_HALF_WIDTH;
+use crate::setup::level::{BALL_INITIAL_VX, BALL_INITIAL_VY, BALL_SIZE, HALF_W, PADDLE_HEIGHT, PADDLE_Y, WALL_THICKNESS};
 
 /// Обработка ввода с клавиатуры — движение ракетки (A/D или ←/→)
 pub fn paddle_input_system(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut query: Query<(&Paddle, &mut Transform)>,
+    mut query: Query<(&Paddle, &Collider, &mut Transform)>,
 ) {
-    for (paddle, mut transform) in &mut query {
+    for (paddle, collider, mut transform) in &mut query {
         let mut direction = 0.0_f32;
 
         if keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft) {
@@ -28,8 +23,13 @@ pub fn paddle_input_system(
             direction += 1.0;
         }
 
+        // Границы считаем по текущей ширине коллайдера (меняется при бонусе PaddleGrow)
+        let half_w = collider.half_width;
+        let left_bound  = -HALF_W + WALL_THICKNESS + half_w;
+        let right_bound =  HALF_W - WALL_THICKNESS - half_w;
+
         let new_x = transform.translation.x + direction * paddle.speed * time.delta_secs();
-        transform.translation.x = new_x.clamp(LEFT_BOUND, RIGHT_BOUND);
+        transform.translation.x = new_x.clamp(left_bound, right_bound);
     }
 }
 

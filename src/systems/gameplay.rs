@@ -5,8 +5,28 @@ use crate::components::brick::Brick;
 use crate::components::velocity::Velocity;
 use crate::resources::game_state::GameState;
 use crate::resources::level_data::LEVELS;
-use crate::resources::score::{CurrentLevel, DebugSkipPending, Lives, Score};
+use crate::resources::score::{CurrentLevel, DebugSkipPending, Lives, Paused, Score};
 use crate::setup::level::HALF_H;
+
+/// Главное меню: Enter/Space → начать игру
+pub fn handle_main_menu_system(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space) {
+        next_state.set(GameState::Playing);
+    }
+}
+
+/// Пауза: Escape в Playing → переключить паузу; Escape на паузе → снять паузу
+pub fn handle_pause_system(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut paused: ResMut<Paused>,
+) {
+    if keys.just_pressed(KeyCode::Escape) {
+        paused.0 = !paused.0;
+    }
+}
 
 /// Мяч упал за нижнюю границу — теряем жизнь.
 /// При наличии жизней — мяч прилипает к ракетке (BallStuck).

@@ -1,10 +1,11 @@
 use bevy::prelude::*;
 
 use crate::resources::game_state::GameState;
-use crate::resources::score::{BallSpeedMultiplier, CurrentLevel, DebugSkipPending, Lives, Score};
+use crate::resources::score::{BallSpeedMultiplier, CurrentLevel, DebugSkipPending, Lives, Paused, Score};
 use crate::systems::gameplay::{
     check_ball_lost_system, check_win_condition_system, debug_auto_advance_system,
     debug_skip_level_system, handle_game_over_system, handle_level_complete_system,
+    handle_main_menu_system, handle_pause_system,
 };
 
 /// Плагин: игровые правила, ресурсы, победа/поражение
@@ -17,17 +18,30 @@ impl Plugin for GameplayPlugin {
         app.init_resource::<CurrentLevel>();
         app.init_resource::<BallSpeedMultiplier>();
         app.init_resource::<DebugSkipPending>();
+        app.init_resource::<Paused>();
 
-        // Сразу переходим в Playing (до реализации главного меню в Этапе 12)
-        app.add_systems(Startup, |mut next_state: ResMut<NextState<GameState>>| {
-            next_state.set(GameState::Playing);
-        });
-
-        // Системы активной игры
+        // Главное меню → старт игры
         app.add_systems(
             Update,
-            (check_ball_lost_system, check_win_condition_system, debug_skip_level_system)
-                .run_if(in_state(GameState::Playing)),
+            handle_main_menu_system.run_if(in_state(GameState::MainMenu)),
+        );
+
+        // Системы активной игры (не работают на паузе)
+        app.add_systems(
+            Update,
+            (
+                check_ball_lost_system,
+                check_win_condition_system,
+                debug_skip_level_system,
+            )
+                .run_if(in_state(GameState::Playing))
+                .run_if(|p: Res<Paused>| !p.0),
+        );
+
+        // Пауза — только в Playing
+        app.add_systems(
+            Update,
+            handle_pause_system.run_if(in_state(GameState::Playing)),
         );
 
         // Обработка GameOver и LevelComplete

@@ -60,9 +60,11 @@ pub fn ufo_movement_system(
 
 const UFO_W: f32 = 60.0;
 const UFO_H: f32 = 24.0;
-/// Диапазон высот для респавна НЛО (y)
-const UFO_RESPAWN_Y_MIN: f32 = -120.0;
-const UFO_RESPAWN_Y_MAX: f32 =   40.0;
+/// Зоны респавна НЛО: выше блоков (BRICKS_TOP=170, верх≈182) или ниже (низ≈18)
+const UFO_RESPAWN_ABOVE_MIN: f32 = 200.0;
+const UFO_RESPAWN_ABOVE_MAX: f32 = 270.0;
+const UFO_RESPAWN_BELOW_MIN: f32 = -120.0;
+const UFO_RESPAWN_BELOW_MAX: f32 =   0.0;
 
 /// Ball ↔ UFO: мяч отражается, НЛО теряет здоровье (2 удара = уничтожение + респавн)
 pub fn ball_ufo_collision_system(
@@ -104,8 +106,12 @@ pub fn ball_ufo_collision_system(
                     let interval = ufo.bomb_timer.duration().as_secs_f32();
                     commands.entity(ufo_entity).despawn();
 
-                    // Респавн на случайной высоте
-                    let new_y = rng.gen_range(UFO_RESPAWN_Y_MIN..=UFO_RESPAWN_Y_MAX);
+                    // Респавн случайно выше или ниже блоков
+                    let new_y = if rng.gen_bool(0.5) {
+                        rng.gen_range(UFO_RESPAWN_ABOVE_MIN..=UFO_RESPAWN_ABOVE_MAX)
+                    } else {
+                        rng.gen_range(UFO_RESPAWN_BELOW_MIN..=UFO_RESPAWN_BELOW_MAX)
+                    };
                     commands.spawn((
                         LevelEntity,
                         Ufo::new(speed, interval),
@@ -181,6 +187,38 @@ pub fn bomb_brick_collision_system(
             if hit {
                 commands.entity(bomb_entity).despawn();
                 continue 'bombs;
+            }
+        }
+    }
+}
+
+/// UFO ↔ Brick: НЛО не проходит сквозь блоки, отражается от них горизонтально
+pub fn ufo_brick_collision_system(
+    brick_query: Query<(&Transform, &Collider), With<Brick>>,
+    mut ufo_query: Query<(&mut Transform, &mut Ufo, &Collider), Without<Brick>>,
+) {
+    for (mut ufo_tf, mut ufo, ufo_col) in &mut ufo_query {
+        let ufo_pos = ufo_tf.translation.truncate();
+        let ufo_half = Vec2::new(ufo_col.half_width, ufo_col.half_height);
+
+        for (brick_tf, brick_col) in &brick_query {
+            let brick_pos = brick_tf.translation.truncate();
+            let brick_half = Vec2::new(brick_col.half_width, brick_col.half_height);
+
+            let dx = ufo_pos.x - brick_pos.x;
+            let dy = ufo_pos.y - brick_pos.y;
+            let overlap_x = ufo_half.x + brick_half.x - dx.abs();
+            let overlap_y = ufo_half.y + brick_half.y - dy.abs();
+
+            if overlap_x > 0.0 && overlap_y > 0.0 {
+                if overlap_x < overlap_y {
+                    // Горизонтальное столкновение — разворот
+                    ufo.direction = -ufo.direction;
+                    ufo_tf.translation.x += if dx > 0.0 { overlap_x } else { -overlap_x };
+                } else {
+                    // Вертикальное — выталкиваем
+                    ufo_tf.translation.y += if dy > 0.0 { overlap_y } else { -overlap_y };
+                }
             }
         }
     }

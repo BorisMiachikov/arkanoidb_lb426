@@ -1,4 +1,5 @@
 pub mod bonus;
+pub mod gun;
 pub mod collision;
 pub mod gameplay;
 pub mod input;

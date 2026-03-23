@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::components::ball::{Ball, BallStuck};
 use crate::components::bonus::Bonus;
-use crate::components::bonus_effects::{BallGrowEffect, PaddleGrowEffect, StickyEffect};
+use crate::components::bonus_effects::{BallGrowEffect, GunPaddleEffect, PaddleGrowEffect, StickyEffect};
 use crate::components::collider::Collider;
 use crate::components::paddle::Paddle;
 use crate::setup::level::PADDLE_WIDTH;
@@ -60,7 +60,10 @@ pub fn bonus_pickup_system(
                     }
                 }
                 crate::components::bonus::BonusType::GunPaddle => {
-                    // TODO Этап будущего
+                    commands.entity(paddle_entity).insert(GunPaddleEffect {
+                        timer: Timer::from_seconds(15.0, TimerMode::Once),
+                        fire_rate: Timer::from_seconds(0.18, TimerMode::Repeating),
+                    });
                 }
             }
         }
@@ -102,6 +105,7 @@ pub fn update_bonus_effects_system(
         (Entity, &mut Transform, &mut Collider, &mut BallGrowEffect),
         (With<Ball>, Without<Paddle>),
     >,
+    mut gun_query: Query<(Entity, &mut GunPaddleEffect), With<Paddle>>,
 ) {
     let dt = time.delta();
 
@@ -132,6 +136,14 @@ pub fn update_bonus_effects_system(
             collider.half_width = effect.original_half_size;
             collider.half_height = effect.original_half_size;
             commands.entity(entity).remove::<BallGrowEffect>();
+        }
+    }
+
+    // GunPaddle
+    for (entity, mut effect) in &mut gun_query {
+        effect.timer.tick(dt);
+        if effect.timer.just_finished() {
+            commands.entity(entity).remove::<GunPaddleEffect>();
         }
     }
 }

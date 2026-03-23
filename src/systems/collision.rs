@@ -211,10 +211,11 @@ pub fn ball_paddle_collision_system(
 }
 
 fn random_bonus_type(rng: &mut impl Rng) -> BonusType {
-    match rng.gen_range(0..3) {
+    match rng.gen_range(0..4) {
         0 => BonusType::PaddleGrow,
         1 => BonusType::StickyPaddle,
-        _ => BonusType::BallGrow,
+        2 => BonusType::BallGrow,
+        _ => BonusType::GunPaddle,
     }
 }
 
