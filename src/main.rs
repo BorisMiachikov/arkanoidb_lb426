@@ -1,5 +1,6 @@
 mod app;
 mod components;
+mod events;
 mod plugins;
 mod resources;
 mod setup;

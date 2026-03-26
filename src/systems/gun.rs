@@ -8,6 +8,7 @@ use crate::components::level_entity::LevelEntity;
 use crate::components::paddle::Paddle;
 use crate::components::ufo::Ufo;
 use crate::components::velocity::Velocity;
+use crate::events::SoundEvent;
 use crate::resources::score::Score;
 use crate::setup::level::HALF_H;
 
@@ -23,6 +24,7 @@ pub fn fire_gun_system(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut paddle_query: Query<(&Transform, &mut GunPaddleEffect), With<Paddle>>,
+    mut sound_events: EventWriter<SoundEvent>,
 ) {
     let fire = keys.pressed(KeyCode::ControlRight) || keys.pressed(KeyCode::ControlLeft);
 
@@ -31,6 +33,7 @@ pub fn fire_gun_system(
 
         if fire && effect.fire_rate.just_finished() {
             effect.fire_rate.reset();
+            sound_events.send(SoundEvent::BulletFire);
 
             let x = paddle_tf.translation.x;
             let y = paddle_tf.translation.y + 14.0;

@@ -6,6 +6,7 @@ use crate::components::velocity::Velocity;
 use crate::resources::game_state::GameState;
 use crate::resources::level_data::LEVELS;
 use crate::resources::editor::EditorData;
+use crate::events::SoundEvent;
 use crate::resources::score::{CurrentLevel, DebugSkipPending, HighScore, Lives, MenuSelection, Paused, Score};
 use crate::setup::level::HALF_H;
 
@@ -57,6 +58,7 @@ pub fn check_ball_lost_system(
     mut ball_query: Query<(Entity, &mut Transform, &mut Velocity), With<Ball>>,
     mut lives: ResMut<Lives>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut sound_events: EventWriter<SoundEvent>,
 ) {
     // Собираем упавших и считаем всего мячей
     let total = ball_query.iter().count();
@@ -84,8 +86,10 @@ pub fn check_ball_lost_system(
         lives.count = lives.count.saturating_sub(1);
 
         if lives.count == 0 {
+            sound_events.send(SoundEvent::GameOver);
             next_state.set(GameState::GameOver);
         } else {
+            sound_events.send(SoundEvent::LifeLost);
             // Оставляем один мяч прилипшим к ракетке, остальные удаляем
             let mut first = true;
             for (ball_entity, mut transform, mut velocity) in &mut ball_query {

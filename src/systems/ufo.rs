@@ -9,6 +9,7 @@ use crate::components::level_entity::LevelEntity;
 use crate::components::paddle::Paddle;
 use crate::components::ufo::Ufo;
 use crate::components::velocity::Velocity;
+use crate::events::SoundEvent;
 use crate::resources::game_state::GameState;
 use crate::resources::score::Lives;
 use crate::setup::level::{HALF_W, WALL_THICKNESS};
@@ -74,6 +75,7 @@ pub fn ball_ufo_collision_system(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut ball_query: Query<(&mut Velocity, &mut Transform, &Collider), With<Ball>>,
     mut ufo_query: Query<(Entity, &Transform, &Collider, &mut Ufo), Without<Ball>>,
+    mut sound_events: EventWriter<SoundEvent>,
 ) {
     let mut rng = rand::thread_rng();
 
@@ -102,6 +104,7 @@ pub fn ball_ufo_collision_system(
 
                 // Урон НЛО
                 ufo.health = ufo.health.saturating_sub(1);
+                sound_events.send(SoundEvent::UfoHit);
                 if ufo.health == 0 {
                     let speed = ufo.speed;
                     let interval = ufo.bomb_timer.duration().as_secs_f32();
@@ -142,6 +145,7 @@ pub fn bomb_paddle_collision_system(
     mut ball_query: Query<(Entity, &mut Transform, &mut Velocity), (With<Ball>, Without<Bomb>, Without<Paddle>)>,
     mut lives: ResMut<Lives>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut sound_events: EventWriter<SoundEvent>,
 ) {
     let Ok((paddle_tf, paddle_col)) = paddle_query.get_single() else {
         return;
@@ -158,9 +162,11 @@ pub fn bomb_paddle_collision_system(
 
         if hit {
             commands.entity(bomb_entity).despawn();
+            sound_events.send(SoundEvent::BombHit);
             lives.count = lives.count.saturating_sub(1);
 
             if lives.count == 0 {
+                sound_events.send(SoundEvent::GameOver);
                 next_state.set(GameState::GameOver);
             } else {
                 // Сброс мяча к ракетке

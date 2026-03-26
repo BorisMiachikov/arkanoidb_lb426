@@ -10,6 +10,7 @@ use crate::components::level_entity::LevelEntity;
 use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
 use crate::components::wall::Wall;
+use crate::events::SoundEvent;
 use crate::resources::score::Score;
 use crate::setup::level::MAX_BALL_SPEED;
 use crate::systems::particles::spawn_burst;
@@ -59,6 +60,7 @@ fn aabb_collision(
 pub fn ball_wall_collision_system(
     mut ball_query: Query<(&mut Velocity, &mut Transform, &Collider), With<Ball>>,
     wall_query: Query<(&Transform, &Collider), (With<Wall>, Without<Ball>)>,
+    mut sound_events: EventWriter<SoundEvent>,
 ) {
     for (mut velocity, mut ball_tf, ball_col) in &mut ball_query {
         let ball_half = Vec2::new(ball_col.half_width, ball_col.half_height);
@@ -69,6 +71,7 @@ pub fn ball_wall_collision_system(
             let wall_half = Vec2::new(wall_col.half_width, wall_col.half_height);
 
             if let Some(side) = aabb_collision(ball_pos, ball_half, wall_pos, wall_half) {
+                sound_events.send(SoundEvent::BallHitWall);
                 match side {
                     CollisionSide::Left | CollisionSide::Right => {
                         velocity.x = -velocity.x;
@@ -104,6 +107,7 @@ pub fn ball_brick_collision_system(
     mut ball_query: Query<(&mut Velocity, &Transform, &Collider, Option<&FireBallEffect>), With<Ball>>,
     mut brick_query: Query<(Entity, &Transform, &Collider, &mut Brick, &MeshMaterial2d<ColorMaterial>)>,
     mut score: ResMut<Score>,
+    mut sound_events: EventWriter<SoundEvent>,
 ) {
     let mut rng = rand::thread_rng();
 
@@ -122,6 +126,7 @@ pub fn ball_brick_collision_system(
 
                 if brick.health == 0 {
                     score.value += brick.score_value;
+                    sound_events.send(SoundEvent::BrickBreak);
 
                     // Частицы взрыва цвета блока
                     let color = materials.get(&brick_mat.0)
@@ -145,6 +150,10 @@ pub fn ball_brick_collision_system(
                             Transform::from_xyz(brick_pos.x, brick_pos.y, 0.8),
                         ));
                     }
+                }
+
+                if brick.health > 0 {
+                    sound_events.send(SoundEvent::BallHitBrick);
                 }
 
                 // FireBall: пробивает кирпичи насквозь — без отскока
@@ -175,6 +184,7 @@ pub fn ball_paddle_collision_system(
     mut commands: Commands,
     mut ball_query: Query<(Entity, &mut Velocity, &mut Transform, &Collider), With<Ball>>,
     paddle_query: Query<(Entity, &Transform, &Collider, Option<&StickyEffect>), (With<Paddle>, Without<Ball>)>,
+    mut sound_events: EventWriter<SoundEvent>,
 ) {
     for (ball_entity, mut velocity, mut ball_tf, ball_col) in &mut ball_query {
         if velocity.y >= 0.0 {
@@ -189,6 +199,7 @@ pub fn ball_paddle_collision_system(
             let paddle_half = Vec2::new(paddle_col.half_width, paddle_col.half_height);
 
             if let Some(side) = aabb_collision(ball_pos, ball_half, paddle_pos, paddle_half) {
+                sound_events.send(SoundEvent::BallHitPaddle);
                 match side {
                     CollisionSide::Top | CollisionSide::Bottom => {
                         let overlap = ball_half.y + paddle_half.y

@@ -1,3 +1,4 @@
+pub mod assets;
 pub mod editor;
 pub mod game_state;
 pub mod level_data;
