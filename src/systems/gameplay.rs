@@ -1,3 +1,4 @@
+use bevy::app::AppExit;
 use bevy::prelude::*;
 
 use crate::components::ball::{Ball, BallStuck};
@@ -16,6 +17,7 @@ pub fn handle_main_menu_system(
     mut next_state: ResMut<NextState<GameState>>,
     mut selection: ResMut<MenuSelection>,
     mut editor: ResMut<EditorData>,
+    mut app_exit: EventWriter<AppExit>,
 ) {
     // Навигация: вверх/вниз
     if keys.just_pressed(KeyCode::ArrowUp) || keys.just_pressed(KeyCode::KeyW) {
@@ -24,7 +26,7 @@ pub fn handle_main_menu_system(
         }
     }
     if keys.just_pressed(KeyCode::ArrowDown) || keys.just_pressed(KeyCode::KeyS) {
-        selection.0 = (selection.0 + 1).min(1);
+        selection.0 = (selection.0 + 1).min(2);
     }
 
     // Подтвердить
@@ -35,6 +37,7 @@ pub fn handle_main_menu_system(
                 next_state.set(GameState::Playing);
             }
             1 => next_state.set(GameState::LevelEditor),
+            2 => { app_exit.send(AppExit::Success); }
             _ => {}
         }
     }

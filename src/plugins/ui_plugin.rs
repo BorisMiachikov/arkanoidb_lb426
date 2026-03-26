@@ -276,7 +276,7 @@ fn spawn_hint(parent: &mut ChildBuilder, text: &str) {
     ));
 }
 
-const MENU_ITEMS: &[&str] = &["PLAY GAME", "LEVEL EDITOR"];
+const MENU_ITEMS: &[&str] = &["PLAY GAME", "LEVEL EDITOR", "QUIT"];
 
 // Главное меню
 fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>) {
