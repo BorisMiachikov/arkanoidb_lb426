@@ -5,7 +5,11 @@ use crate::events::SoundEvent;
 use crate::resources::assets::GameAssets;
 use crate::resources::game_state::GameState;
 
-/// Маркер сущности фоновой музыки — не удаляется при смене уровня
+/// Маркер музыки главного меню
+#[derive(Component)]
+pub struct MenuMusicController;
+
+/// Маркер музыки геймплея — не удаляется при смене уровня
 #[derive(Component)]
 pub struct MusicController;
 
@@ -17,11 +21,13 @@ impl Plugin for AssetPlugin {
 
         app.add_systems(Startup, load_assets);
 
-        // Запуск музыки при входе в Playing (только если ещё не играет)
-        app.add_systems(OnEnter(GameState::Playing), start_gameplay_music);
+        // Музыка меню
+        app.add_systems(OnEnter(GameState::MainMenu), start_menu_music);
+        app.add_systems(OnExit(GameState::MainMenu), stop_menu_music);
 
-        // Остановка музыки при возврате в главное меню
-        app.add_systems(OnEnter(GameState::MainMenu), stop_music);
+        // Музыка геймплея
+        app.add_systems(OnEnter(GameState::Playing), start_gameplay_music);
+        app.add_systems(OnEnter(GameState::MainMenu), stop_gameplay_music);
 
         // Воспроизведение звуков — в Update без ограничения по состоянию,
         // чтобы поймать события из переходных фреймов (life_lost, game_over)
@@ -45,6 +51,7 @@ fn load_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
         sound_ufo_hit:      asset_server.load("sounds/ufo_hit.ogg"),
         sound_bomb_hit:     asset_server.load("sounds/bomb_hit.ogg"),
         // Музыка
+        music_menu:         asset_server.load("music/menu.ogg"),
         music_gameplay:     asset_server.load("music/gameplay.ogg"),
         // Спрайты
         sprite_paddle:            asset_server.load("sprites/paddle.png"),
@@ -67,12 +74,36 @@ fn load_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 // ─── Музыка ──────────────────────────────────────────────────────────────────
 
+fn start_menu_music(
+    mut commands: Commands,
+    assets: Res<GameAssets>,
+    query: Query<(), With<MenuMusicController>>,
+) {
+    if !query.is_empty() {
+        return;
+    }
+    commands.spawn((
+        MenuMusicController,
+        AudioPlayer::new(assets.music_menu.clone()),
+        PlaybackSettings::LOOP,
+    ));
+}
+
+fn stop_menu_music(
+    mut commands: Commands,
+    query: Query<Entity, With<MenuMusicController>>,
+) {
+    for entity in &query {
+        commands.entity(entity).despawn();
+    }
+}
+
 fn start_gameplay_music(
     mut commands: Commands,
     assets: Res<GameAssets>,
-    music_query: Query<(), With<MusicController>>,
+    query: Query<(), With<MusicController>>,
 ) {
-    if !music_query.is_empty() {
+    if !query.is_empty() {
         return; // уже играет — не перезапускать между уровнями
     }
     commands.spawn((
@@ -82,8 +113,11 @@ fn start_gameplay_music(
     ));
 }
 
-fn stop_music(mut commands: Commands, music_query: Query<Entity, With<MusicController>>) {
-    for entity in &music_query {
+fn stop_gameplay_music(
+    mut commands: Commands,
+    query: Query<Entity, With<MusicController>>,
+) {
+    for entity in &query {
         commands.entity(entity).despawn();
     }
 }

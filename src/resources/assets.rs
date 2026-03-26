@@ -17,6 +17,7 @@ pub struct GameAssets {
     pub sound_ufo_hit:      Handle<AudioSource>,
     pub sound_bomb_hit:     Handle<AudioSource>,
     // ── Музыка ───────────────────────────────────────────────────────────────
+    pub music_menu:         Handle<AudioSource>,
     pub music_gameplay:     Handle<AudioSource>,
     // ── Спрайты (используются при переходе на спрайтовый рендер) ─────────────
     pub sprite_paddle:            Handle<Image>,
