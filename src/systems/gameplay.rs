@@ -40,13 +40,19 @@ pub fn handle_main_menu_system(
     }
 }
 
-/// Пауза: Escape в Playing → переключить паузу; Escape на паузе → снять паузу
+/// Пауза: первый ESC → пауза; второй ESC → выход в главное меню
 pub fn handle_pause_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut paused: ResMut<Paused>,
+    mut next_state: ResMut<NextState<GameState>>,
 ) {
     if keys.just_pressed(KeyCode::Escape) {
-        paused.0 = !paused.0;
+        if paused.0 {
+            paused.0 = false;
+            next_state.set(GameState::MainMenu);
+        } else {
+            paused.0 = true;
+        }
     }
 }
 

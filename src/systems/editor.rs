@@ -113,7 +113,7 @@ fn spawn_editor_ui(commands: &mut Commands, editor: &EditorData) {
                     TextColor(Color::srgb(0.4, 0.9, 1.0)),
                 ));
                 row.spawn((
-                    Text::new(format!("Ряды: {}  (+/-)", editor.rows)),
+                    Text::new(format!("Rows: {}  (+/-)", editor.rows)),
                     TextFont { font_size: 18.0, ..default() },
                     TextColor(Color::srgb(0.8, 0.8, 0.8)),
                     EditorRowsText,
@@ -124,7 +124,7 @@ fn spawn_editor_ui(commands: &mut Commands, editor: &EditorData) {
             root.spawn(Node { justify_content: JustifyContent::Center, ..default() })
                 .with_children(|row| {
                     row.spawn((
-                        Text::new(format!("Кисть [0/1/2]: {}", brush_label(editor.brush))),
+                        Text::new(format!("Brush [0/1/2]: {}", brush_label(editor.brush))),
                         TextFont { font_size: 16.0, ..default() },
                         TextColor(Color::srgb(1.0, 0.9, 0.3)),
                         EditorBrushText,
@@ -139,12 +139,12 @@ fn spawn_editor_ui(commands: &mut Commands, editor: &EditorData) {
             })
             .with_children(|row| {
                 row.spawn((
-                    Text::new("[S] Сохранить   [L] Загрузить   [P] Играть"),
+                    Text::new("[S] Save   [L] Load   [P] Play"),
                     TextFont { font_size: 14.0, ..default() },
                     TextColor(Color::srgb(0.5, 1.0, 0.5)),
                 ));
                 row.spawn((
-                    Text::new("[ESC] В меню"),
+                    Text::new("[ESC] Menu"),
                     TextFont { font_size: 14.0, ..default() },
                     TextColor(Color::srgb(0.6, 0.6, 0.6)),
                 ));
@@ -232,7 +232,7 @@ pub fn editor_keyboard_system(
     if let Some(b) = new_brush {
         editor.brush = b;
         if let Ok(mut t) = brush_text.get_single_mut() {
-            **t = format!("Кисть [0/1/2]: {}", brush_label(b));
+            **t = format!("Brush [0/1/2]: {}", brush_label(b));
         }
     }
 
@@ -246,7 +246,7 @@ pub fn editor_keyboard_system(
     }
     if add || sub {
         if let Ok(mut t) = rows_text.get_single_mut() {
-            **t = format!("Ряды: {}  (+/-)", editor.rows);
+            **t = format!("Rows: {}  (+/-)", editor.rows);
         }
     }
 
@@ -301,9 +301,9 @@ pub fn editor_redraw_system(
 
     // Обновить UI
     if let Ok(mut t) = rows_text.get_single_mut() {
-        **t = format!("Ряды: {}  (+/-)", editor.rows);
+        **t = format!("Rows: {}  (+/-)", editor.rows);
     }
     if let Ok(mut t) = brush_text.get_single_mut() {
-        **t = format!("Кисть [0/1/2]: {}", brush_label(editor.brush));
+        **t = format!("Brush [0/1/2]: {}", brush_label(editor.brush));
     }
 }

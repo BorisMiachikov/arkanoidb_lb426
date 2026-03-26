@@ -305,7 +305,7 @@ fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>) {
                 ));
             }
 
-            spawn_hint(panel, "[ ↑↓ Выбор ]  [ ENTER Подтвердить ]");
+            spawn_hint(panel, "[ W/S or UP/DN  Select ]  [ ENTER  Confirm ]");
         });
     });
 }
@@ -397,7 +397,7 @@ fn update_pause_overlay(
             .with_children(|parent| {
                 spawn_panel(parent, |panel| {
                     spawn_title(panel, "PAUSE", Color::srgb(0.9, 0.9, 0.3));
-                    spawn_hint(panel, "[ ESC to Resume ]");
+                    spawn_hint(panel, "[ ESC  Resume ]  [ ESC x2  Main Menu ]");
                 });
             });
     } else {
