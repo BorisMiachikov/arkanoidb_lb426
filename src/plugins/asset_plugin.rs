@@ -19,7 +19,7 @@ impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SoundEvent>();
 
-        app.add_systems(Startup, load_assets);
+        app.add_systems(PreStartup, load_assets);
 
         // Музыка меню
         app.add_systems(OnEnter(GameState::MainMenu), start_menu_music);
