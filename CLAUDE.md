@@ -29,9 +29,10 @@ cargo clippy
 | Плагин | Ответственность |
 |--------|----------------|
 | `GameplayPlugin` | Правила игры, жизни, победа/поражение, пауза, отладочные клавиши |
-| `PhysicsPlugin` | Движение, ввод и все AABB-коллизии (включая пулемёт) |
-| `UiPlugin` | HUD (счёт, уровень, жизни, бонусы), экраны состояний |
+| `PhysicsPlugin` | Движение, ввод и все AABB-коллизии (включая пулемёт), частицы |
+| `UiPlugin` | HUD (счёт, уровень, жизни, бонусы, рекорд), экраны состояний |
 | `LevelPlugin` | Камера, загрузка и очистка уровней |
+| `EditorPlugin` | Редактор уровней — мышь + клавиатура, сохранение/загрузка custom_level.lvl |
 
 ### Структура `src/`
 
@@ -43,10 +44,12 @@ src/
 ├── components/           # ECS-компоненты (только данные, без логики)
 │   ├── ball.rs           # Ball { radius }, BallStuck (маркер запуска)
 │   ├── brick.rs          # Brick { brick_type, health, score_value }
-│   ├── bonus.rs          # Bonus { bonus_type: BonusType }
-│   ├── bonus_effects.rs  # PaddleGrowEffect, StickyEffect, BallGrowEffect, GunPaddleEffect
+│   ├── bonus.rs          # Bonus { bonus_type: BonusType } — 6 типов бонусов
+│   ├── bonus_effects.rs  # PaddleGrowEffect, StickyEffect, BallGrowEffect,
+│   │                     # GunPaddleEffect, FireBallEffect
 │   ├── bomb.rs           # Bomb { damage }
 │   ├── bullet.rs         # Bullet (маркер снаряда пулемёта)
+│   ├── particle.rs       # Particle { lifetime: Timer } — частицы эффектов
 │   ├── ufo.rs            # Ufo { speed, direction, bomb_timer, health }
 │   ├── paddle.rs         # Paddle { speed }
 │   ├── velocity.rs       # Velocity { x, y }
@@ -57,14 +60,25 @@ src/
 │   ├── input.rs          # paddle_input_system, ball_stuck_system
 │   ├── movement.rs       # apply_velocity_system
 │   ├── collision.rs      # ball_wall/brick/paddle коллизии, дроп бонусов
-│   ├── bonus.rs          # подбор бонусов, применение/откат эффектов
+│   ├── bonus.rs          # подбор бонусов, применение/откат эффектов, MultiBall спавн
 │   ├── gun.rs            # fire_gun_system, bullet коллизии, cleanup
+│   ├── particles.rs      # update_particles_system, ball_trail_system, spawn_burst, BallTrailTimer
+│   ├── editor.rs         # EditorCell, EditorEntity, setup/cleanup_editor,
+│   │                     # editor_mouse/keyboard/redraw_system
 │   ├── ufo.rs            # движение НЛО, коллизии с блоками, бомбы
 │   └── gameplay.rs       # потеря мяча, победа, GameOver, debug skip, пауза
+├── plugins/              # Bevy-плагины
+│   ├── editor_plugin.rs  # EditorPlugin — LevelEditor состояние
+│   ├── gameplay_plugin.rs
+│   ├── level_plugin.rs
+│   ├── physics_plugin.rs
+│   └── ui_plugin.rs
 ├── resources/            # Глобальные ресурсы
-│   ├── game_state.rs     # GameState enum
+│   ├── game_state.rs     # GameState enum (+ LevelEditor)
 │   ├── score.rs          # Score, Lives, CurrentLevel, BallSpeedMultiplier,
-│   │                     # DebugSkipPending, Paused
+│   │                     # DebugSkipPending, Paused, MenuSelection, HighScore
+│   ├── editor.rs         # EditorData, EDITOR_COLS/MIN_ROWS/MAX_ROWS/FILE,
+│   │                     # editor_cell_color — логика редактора и файл custom_level.lvl
 │   └── level_data.rs     # LevelConfig, LEVELS (статические данные уровней)
 └── setup/                # Инициализация сцены
     ├── camera.rs         # spawn_camera
@@ -74,8 +88,12 @@ src/
 ### Игровые состояния
 
 ```
-Startup → MainMenu → Playing → LevelComplete → Playing (следующий уровень)
-                             ↘ GameOver → Playing (рестарт)
+Startup → MainMenu ──────────────────────────── LevelEditor
+               │                                     │ ESC → MainMenu
+               │ Play Game (Enter/Space)              │ P   → Playing (кастомный уровень)
+               ↓
+           Playing → LevelComplete → Playing (следующий уровень)
+                  ↘ GameOver → Playing (рестарт)
 ```
 
 **Пауза** реализована через ресурс `Paused(bool)` — не меняет `GameState`,
@@ -109,7 +127,7 @@ Startup → MainMenu → Playing → LevelComplete → Playing (следующи
 - `ufos: &[(f32, f32)]` — позиции спавна НЛО
 - `ufo_speed: f32`, `ufo_bomb_interval: f32`
 
-### Управление
+### Управление (Playing)
 
 | Клавиша | Действие |
 |---------|----------|
@@ -119,6 +137,20 @@ Startup → MainMenu → Playing → LevelComplete → Playing (следующи
 | Ctrl (Left/Right) | стрельба пулемётом (если активен GunPaddle) |
 | Escape | пауза / снять паузу |
 | `*` Numpad | **[DEBUG]** следующий уровень |
+
+### Управление (LevelEditor)
+
+| Клавиша | Действие |
+|---------|----------|
+| ЛКМ / drag | нарисовать ячейку выбранной кистью |
+| ПКМ / drag | стереть ячейку (тип 0) |
+| 0 / 1 / 2 | выбрать кисть (пусто / Normal / Strong) |
+| + / NumpadAdd | добавить ряд (макс. 10) |
+| - / NumpadSubtract | убрать ряд (мин. 1) |
+| S | сохранить в `custom_level.lvl` |
+| L | загрузить из `custom_level.lvl` |
+| P | перейти в Playing с кастомным уровнем |
+| Escape | вернуться в MainMenu |
 
 ### Важные константы (`setup/level.rs`)
 

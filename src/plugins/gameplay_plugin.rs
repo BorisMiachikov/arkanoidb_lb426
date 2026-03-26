@@ -1,11 +1,11 @@
 use bevy::prelude::*;
 
 use crate::resources::game_state::GameState;
-use crate::resources::score::{BallSpeedMultiplier, CurrentLevel, DebugSkipPending, Lives, Paused, Score};
+use crate::resources::score::{BallSpeedMultiplier, CurrentLevel, DebugSkipPending, HighScore, Lives, MenuSelection, Paused, Score};
 use crate::systems::gameplay::{
     check_ball_lost_system, check_win_condition_system, debug_auto_advance_system,
     debug_skip_level_system, handle_game_over_system, handle_level_complete_system,
-    handle_main_menu_system, handle_pause_system,
+    handle_main_menu_system, handle_pause_system, track_highscore_system,
 };
 
 /// Плагин: игровые правила, ресурсы, победа/поражение
@@ -19,6 +19,8 @@ impl Plugin for GameplayPlugin {
         app.init_resource::<BallSpeedMultiplier>();
         app.init_resource::<DebugSkipPending>();
         app.init_resource::<Paused>();
+        app.init_resource::<MenuSelection>();
+        app.insert_resource(HighScore::load());
 
         // Главное меню → старт игры
         app.add_systems(
@@ -33,6 +35,7 @@ impl Plugin for GameplayPlugin {
                 check_ball_lost_system,
                 check_win_condition_system,
                 debug_skip_level_system,
+                track_highscore_system,
             )
                 .run_if(in_state(GameState::Playing))
                 .run_if(|p: Res<Paused>| !p.0),

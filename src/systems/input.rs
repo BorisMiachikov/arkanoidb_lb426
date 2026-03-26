@@ -5,7 +5,7 @@ use crate::components::collider::Collider;
 use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
 use crate::resources::score::BallSpeedMultiplier;
-use crate::setup::level::{BALL_INITIAL_VX, BALL_INITIAL_VY, BALL_SIZE, HALF_W, PADDLE_HEIGHT, PADDLE_Y, WALL_THICKNESS};
+use crate::setup::level::{BALL_INITIAL_VX, BALL_INITIAL_VY, BALL_SIZE, HALF_W, MAX_BALL_SPEED, PADDLE_HEIGHT, PADDLE_Y, WALL_THICKNESS};
 
 /// Обработка ввода с клавиатуры — движение ракетки (A/D или ←/→)
 pub fn paddle_input_system(
@@ -65,6 +65,14 @@ pub fn ball_stuck_system(
             };
             velocity.x = vx;
             velocity.y = BALL_INITIAL_VY * m;
+
+            // Кэп скорости (важен для высоких уровней)
+            let speed = (velocity.x * velocity.x + velocity.y * velocity.y).sqrt();
+            if speed > MAX_BALL_SPEED {
+                let scale = MAX_BALL_SPEED / speed;
+                velocity.x *= scale;
+                velocity.y *= scale;
+            }
         }
     }
 }

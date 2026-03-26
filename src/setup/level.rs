@@ -9,6 +9,7 @@ use crate::components::level_entity::LevelEntity;
 use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
 use crate::components::wall::Wall;
+use crate::resources::editor::EditorData;
 use crate::resources::level_data::{LevelConfig, LEVELS};
 use crate::resources::score::{BallSpeedMultiplier, CurrentLevel};
 
@@ -24,32 +25,42 @@ pub const PADDLE_Y: f32 = -HALF_H + 50.0;
 pub const BALL_SIZE: f32 = 20.0;
 pub const BALL_INITIAL_VX: f32 = 200.0;
 pub const BALL_INITIAL_VY: f32 = 350.0;
+pub const MAX_BALL_SPEED: f32 = 750.0;
 
 pub const WALL_THICKNESS: f32 = 16.0;
 
 pub const BRICK_WIDTH: f32 = 72.0;
 pub const BRICK_HEIGHT: f32 = 24.0;
-const BRICK_GAP: f32 = 4.0;
-const BRICKS_TOP_Y: f32 = 170.0;
+pub const BRICK_GAP: f32 = 4.0;
+pub const BRICKS_TOP_Y: f32 = 170.0;
 
-/// Создаём сущности уровня — читает конфиг из CurrentLevel
+/// Создаём сущности уровня.
+/// Если EditorData.active — используем кастомную сетку из редактора.
+/// Иначе — берём из LEVELS[CurrentLevel].
 pub fn spawn_level_entities(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     current_level: Res<CurrentLevel>,
     mut speed_multiplier: ResMut<BallSpeedMultiplier>,
+    editor_data: Res<EditorData>,
 ) {
-    let level_idx = (current_level.number as usize).min(LEVELS.len() - 1);
-    let config = &LEVELS[level_idx];
-
-    speed_multiplier.0 = config.ball_speed_multiplier;
-
     spawn_paddle(&mut commands, &mut meshes, &mut materials);
     spawn_ball(&mut commands, &mut meshes, &mut materials);
     spawn_walls(&mut commands, &mut meshes, &mut materials);
-    spawn_bricks(&mut commands, &mut meshes, &mut materials, config.grid);
-    spawn_ufos(&mut commands, &mut meshes, &mut materials, config);
+
+    if editor_data.active {
+        // Кастомный уровень из редактора — без НЛО, базовая скорость
+        speed_multiplier.0 = 1.0;
+        let grid_refs: Vec<&[u8]> = editor_data.grid.iter().map(|r| r.as_slice()).collect();
+        spawn_bricks(&mut commands, &mut meshes, &mut materials, &grid_refs);
+    } else {
+        let level_idx = (current_level.number as usize).min(LEVELS.len() - 1);
+        let config = &LEVELS[level_idx];
+        speed_multiplier.0 = config.ball_speed_multiplier;
+        spawn_bricks(&mut commands, &mut meshes, &mut materials, config.grid);
+        spawn_ufos(&mut commands, &mut meshes, &mut materials, config);
+    }
 }
 
 /// Удаляем все сущности уровня при выходе из Playing

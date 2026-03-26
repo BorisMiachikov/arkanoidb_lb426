@@ -12,6 +12,7 @@ use crate::components::velocity::Velocity;
 use crate::resources::game_state::GameState;
 use crate::resources::score::Lives;
 use crate::setup::level::{HALF_W, WALL_THICKNESS};
+use crate::systems::particles::spawn_burst;
 
 const UFO_HALF_W: f32 = 30.0;
 const BOMB_SIZE: f32 = 10.0;
@@ -104,6 +105,13 @@ pub fn ball_ufo_collision_system(
                 if ufo.health == 0 {
                     let speed = ufo.speed;
                     let interval = ufo.bomb_timer.duration().as_secs_f32();
+
+                    // Взрыв НЛО: пурпурные частицы
+                    spawn_burst(
+                        &mut commands, &mut meshes, &mut materials,
+                        ufo_pos, Color::srgb(0.9, 0.2, 0.9), 12, 160.0, 0.5,
+                    );
+
                     commands.entity(ufo_entity).despawn();
 
                     // Респавн случайно выше или ниже блоков

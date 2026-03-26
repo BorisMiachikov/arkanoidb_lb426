@@ -1,5 +1,6 @@
 pub mod ball;
 pub mod bullet;
+pub mod particle;
 pub mod bomb;
 pub mod bonus;
 pub mod bonus_effects;

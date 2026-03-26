@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 
+use crate::plugins::editor_plugin::EditorPlugin;
 use crate::plugins::gameplay_plugin::GameplayPlugin;
 use crate::plugins::level_plugin::LevelPlugin;
 use crate::plugins::physics_plugin::PhysicsPlugin;
@@ -27,7 +28,7 @@ pub fn build_app() -> App {
     // Тёмно-синий фон — контраст для белого мяча и серых стен
     app.insert_resource(ClearColor(Color::srgb(0.05, 0.05, 0.15)));
 
-    app.add_plugins((GameplayPlugin, PhysicsPlugin, UiPlugin, LevelPlugin));
+    app.add_plugins((GameplayPlugin, PhysicsPlugin, UiPlugin, LevelPlugin, EditorPlugin));
 
     app
 }

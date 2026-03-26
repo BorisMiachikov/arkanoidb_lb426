@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
-use crate::components::bonus_effects::{BallGrowEffect, GunPaddleEffect, PaddleGrowEffect, StickyEffect};
+use crate::components::bonus_effects::{BallGrowEffect, FireBallEffect, GunPaddleEffect, PaddleGrowEffect, StickyEffect};
 use crate::resources::game_state::GameState;
-use crate::resources::score::{CurrentLevel, Lives, Paused, Score};
+use crate::resources::score::{CurrentLevel, HighScore, Lives, MenuSelection, Paused, Score};
 
 // ─── Маркеры HUD ────────────────────────────────────────────────────────────
 
@@ -17,6 +17,13 @@ struct LevelText;
 
 #[derive(Component)]
 struct ActiveBonusText;
+
+#[derive(Component)]
+struct HighScoreText;
+
+/// Маркер пункта главного меню (хранит индекс пункта)
+#[derive(Component)]
+struct MenuItemText(usize);
 
 // ─── Маркеры оверлеев ───────────────────────────────────────────────────────
 
@@ -37,7 +44,7 @@ impl Plugin for UiPlugin {
         app.add_systems(Startup, setup_hud);
 
         // Главное меню
-        app.add_systems(OnEnter(GameState::MainMenu), spawn_main_menu);
+        app.add_systems(OnEnter(GameState::MainMenu), (reset_menu_selection, spawn_main_menu).chain());
         app.add_systems(OnExit(GameState::MainMenu), despawn_overlay);
 
         // GameOver
@@ -56,7 +63,9 @@ impl Plugin for UiPlugin {
                 update_lives_ui,
                 update_level_ui,
                 update_bonus_ui,
+                update_highscore_ui,
                 update_pause_overlay,
+                update_menu_selection_ui.run_if(in_state(GameState::MainMenu)),
             ),
         );
     }
@@ -96,6 +105,12 @@ fn setup_hud(mut commands: Commands) {
                     LevelText,
                 ));
                 row.spawn((
+                    Text::new("BEST: 0"),
+                    TextFont { font_size: 18.0, ..default() },
+                    TextColor(Color::srgb(1.0, 0.8, 0.2)),
+                    HighScoreText,
+                ));
+                row.spawn((
                     Text::new("LIVES: 3"),
                     TextFont { font_size: 18.0, ..default() },
                     TextColor(Color::srgb(1.0, 0.4, 0.4)),
@@ -131,6 +146,17 @@ fn update_score_ui(score: Res<Score>, mut query: Query<&mut Text, With<ScoreText
     }
 }
 
+fn update_highscore_ui(
+    highscore: Res<HighScore>,
+    mut query: Query<&mut Text, With<HighScoreText>>,
+) {
+    if highscore.is_changed() {
+        if let Ok(mut text) = query.get_single_mut() {
+            **text = format!("BEST: {}", highscore.value);
+        }
+    }
+}
+
 fn update_lives_ui(lives: Res<Lives>, mut query: Query<&mut Text, With<LivesText>>) {
     if lives.is_changed() {
         if let Ok(mut text) = query.get_single_mut() {
@@ -156,6 +182,7 @@ fn update_bonus_ui(
     sticky: Query<&StickyEffect>,
     ball_grow: Query<&BallGrowEffect>,
     gun: Query<&GunPaddleEffect>,
+    fire: Query<&FireBallEffect>,
 ) {
     let Ok(mut text) = query.get_single_mut() else {
         return;
@@ -174,11 +201,18 @@ fn update_bonus_ui(
     if let Ok(effect) = gun.get_single() {
         bonuses.push(format!("[GUN {:.1}s]", effect.timer.remaining_secs()));
     }
+    if let Ok(effect) = fire.get_single() {
+        bonuses.push(format!("[FIRE {:.1}s]", effect.timer.remaining_secs()));
+    }
 
     **text = bonuses.join("  ");
 }
 
 // ─── Оверлеи состояний ──────────────────────────────────────────────────────
+
+fn reset_menu_selection(mut selection: ResMut<MenuSelection>) {
+    selection.0 = 0;
+}
 
 fn despawn_overlay(mut commands: Commands, query: Query<Entity, With<OverlayScreen>>) {
     for entity in &query {
@@ -242,26 +276,75 @@ fn spawn_hint(parent: &mut ChildBuilder, text: &str) {
     ));
 }
 
+const MENU_ITEMS: &[&str] = &["PLAY GAME", "LEVEL EDITOR"];
+
 // Главное меню
-fn spawn_main_menu(mut commands: Commands) {
+fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>) {
+    let best = highscore.value;
     let root = spawn_overlay_root(&mut commands);
     commands.entity(root).with_children(|parent| {
         spawn_panel(parent, |panel| {
             spawn_title(panel, "ARKANOID", Color::srgb(0.3, 0.7, 1.0));
             spawn_subtitle(panel, "Rust  +  Bevy  Edition");
-            spawn_hint(panel, "[ ENTER or SPACE to Start ]");
+            if best > 0 {
+                spawn_subtitle(panel, &format!("Best Score: {}", best));
+            }
+
+            // Пункты меню
+            for (idx, &label) in MENU_ITEMS.iter().enumerate() {
+                let prefix = if idx == 0 { ">  " } else { "   " };
+                panel.spawn((
+                    Text::new(format!("{}{}", prefix, label)),
+                    TextFont { font_size: 26.0, ..default() },
+                    TextColor(if idx == 0 {
+                        Color::WHITE
+                    } else {
+                        Color::srgb(0.55, 0.55, 0.55)
+                    }),
+                    MenuItemText(idx),
+                ));
+            }
+
+            spawn_hint(panel, "[ ↑↓ Выбор ]  [ ENTER Подтвердить ]");
         });
     });
 }
 
+fn update_menu_selection_ui(
+    selection: Res<MenuSelection>,
+    mut query: Query<(&mut Text, &mut TextColor, &MenuItemText)>,
+) {
+    if !selection.is_changed() {
+        return;
+    }
+    for (mut text, mut color, item) in &mut query {
+        let selected = item.0 == selection.0;
+        let prefix = if selected { ">  " } else { "   " };
+        let label = MENU_ITEMS[item.0];
+        **text = format!("{}{}", prefix, label);
+        color.0 = if selected {
+            Color::WHITE
+        } else {
+            Color::srgb(0.55, 0.55, 0.55)
+        };
+    }
+}
+
 // GameOver
-fn spawn_game_over(mut commands: Commands, score: Res<Score>) {
+fn spawn_game_over(mut commands: Commands, score: Res<Score>, highscore: Res<HighScore>) {
     let score_val = score.value;
+    let best = highscore.value;
+    let is_new_record = score_val > 0 && score_val >= best;
     let root = spawn_overlay_root(&mut commands);
     commands.entity(root).with_children(|parent| {
         spawn_panel(parent, |panel| {
             spawn_title(panel, "GAME OVER", Color::srgb(1.0, 0.25, 0.25));
             spawn_subtitle(panel, &format!("Score: {}", score_val));
+            if is_new_record {
+                spawn_subtitle(panel, "*** NEW RECORD! ***");
+            } else {
+                spawn_hint(panel, &format!("Best: {}", best));
+            }
             spawn_hint(panel, "[ ENTER to Restart ]");
         });
     });

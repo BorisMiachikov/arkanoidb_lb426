@@ -5,16 +5,37 @@ use crate::components::brick::Brick;
 use crate::components::velocity::Velocity;
 use crate::resources::game_state::GameState;
 use crate::resources::level_data::LEVELS;
-use crate::resources::score::{CurrentLevel, DebugSkipPending, Lives, Paused, Score};
+use crate::resources::editor::EditorData;
+use crate::resources::score::{CurrentLevel, DebugSkipPending, HighScore, Lives, MenuSelection, Paused, Score};
 use crate::setup::level::HALF_H;
 
-/// Главное меню: Enter/Space → начать игру
+/// Главное меню: навигация и выбор
 pub fn handle_main_menu_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut selection: ResMut<MenuSelection>,
+    mut editor: ResMut<EditorData>,
 ) {
+    // Навигация: вверх/вниз
+    if keys.just_pressed(KeyCode::ArrowUp) || keys.just_pressed(KeyCode::KeyW) {
+        if selection.0 > 0 {
+            selection.0 -= 1;
+        }
+    }
+    if keys.just_pressed(KeyCode::ArrowDown) || keys.just_pressed(KeyCode::KeyS) {
+        selection.0 = (selection.0 + 1).min(1);
+    }
+
+    // Подтвердить
     if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space) {
-        next_state.set(GameState::Playing);
+        match selection.0 {
+            0 => {
+                editor.active = false;
+                next_state.set(GameState::Playing);
+            }
+            1 => next_state.set(GameState::LevelEditor),
+            _ => {}
+        }
     }
 }
 
@@ -28,26 +49,55 @@ pub fn handle_pause_system(
     }
 }
 
-/// Мяч упал за нижнюю границу — теряем жизнь.
-/// При наличии жизней — мяч прилипает к ракетке (BallStuck).
-/// При 0 жизней — GameOver.
+/// Мячи упали за нижнюю границу.
+/// Дополнительные мячи (MultiBall) просто удаляются без потери жизни.
+/// Жизнь теряется только когда упал ПОСЛЕДНИЙ мяч на поле.
 pub fn check_ball_lost_system(
     mut commands: Commands,
     mut ball_query: Query<(Entity, &mut Transform, &mut Velocity), With<Ball>>,
     mut lives: ResMut<Lives>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    for (ball_entity, mut transform, mut velocity) in &mut ball_query {
-        if transform.translation.y < -(HALF_H + 20.0) {
-            lives.count = lives.count.saturating_sub(1);
+    // Собираем упавших и считаем всего мячей
+    let total = ball_query.iter().count();
+    let mut fallen: Vec<Entity> = Vec::new();
 
-            if lives.count == 0 {
-                next_state.set(GameState::GameOver);
-            } else {
-                velocity.x = 0.0;
-                velocity.y = 0.0;
-                transform.translation.x = 0.0;
-                commands.entity(ball_entity).insert(BallStuck);
+    for (ball_entity, transform, _) in &ball_query {
+        if transform.translation.y < -(HALF_H + 20.0) {
+            fallen.push(ball_entity);
+        }
+    }
+
+    if fallen.is_empty() {
+        return;
+    }
+
+    let surviving = total - fallen.len();
+
+    if surviving > 0 {
+        // На поле ещё есть мячи — просто удаляем упавшие
+        for entity in fallen {
+            commands.entity(entity).despawn();
+        }
+    } else {
+        // Последний мяч потерян — теряем жизнь
+        lives.count = lives.count.saturating_sub(1);
+
+        if lives.count == 0 {
+            next_state.set(GameState::GameOver);
+        } else {
+            // Оставляем один мяч прилипшим к ракетке, остальные удаляем
+            let mut first = true;
+            for (ball_entity, mut transform, mut velocity) in &mut ball_query {
+                if first {
+                    velocity.x = 0.0;
+                    velocity.y = 0.0;
+                    transform.translation.x = 0.0;
+                    commands.entity(ball_entity).insert(BallStuck);
+                    first = false;
+                } else {
+                    commands.entity(ball_entity).despawn();
+                }
             }
         }
     }
@@ -64,6 +114,14 @@ pub fn check_win_condition_system(
     }
 }
 
+/// Следит за счётом и обновляет рекорд при его превышении
+pub fn track_highscore_system(score: Res<Score>, mut highscore: ResMut<HighScore>) {
+    if score.is_changed() && score.value > highscore.value {
+        highscore.value = score.value;
+        highscore.save();
+    }
+}
+
 /// В состоянии GameOver: Enter/Space → рестарт с первого уровня
 pub fn handle_game_over_system(
     keys: Res<ButtonInput<KeyCode>>,
@@ -71,11 +129,13 @@ pub fn handle_game_over_system(
     mut score: ResMut<Score>,
     mut lives: ResMut<Lives>,
     mut current_level: ResMut<CurrentLevel>,
+    mut editor: ResMut<EditorData>,
 ) {
     if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space) {
         score.value = 0;
         lives.count = 3;
         current_level.number = 0;
+        editor.active = false;
         next_state.set(GameState::Playing);
     }
 }

@@ -41,3 +41,31 @@ impl Default for BallSpeedMultiplier {
         Self(1.0)
     }
 }
+
+/// Ресурс: выбранный пункт главного меню (0=Play, 1=LevelEditor)
+#[derive(Resource, Default)]
+pub struct MenuSelection(pub usize);
+
+/// Ресурс: рекорд — сохраняется в файл при обновлении
+#[derive(Resource, Debug, Default)]
+pub struct HighScore {
+    pub value: u32,
+}
+
+impl HighScore {
+    const FILE: &'static str = "highscore.dat";
+
+    /// Загружает рекорд из файла; возвращает 0 если файл не существует
+    pub fn load() -> Self {
+        let value = std::fs::read_to_string(Self::FILE)
+            .ok()
+            .and_then(|s| s.trim().parse().ok())
+            .unwrap_or(0);
+        Self { value }
+    }
+
+    /// Сохраняет рекорд в файл
+    pub fn save(&self) {
+        let _ = std::fs::write(Self::FILE, self.value.to_string());
+    }
+}

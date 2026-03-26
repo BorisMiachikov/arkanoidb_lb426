@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 use crate::components::ball::{Ball, BallStuck};
 use crate::components::bonus::{Bonus, BonusType};
-use crate::components::bonus_effects::StickyEffect;
+use crate::components::bonus_effects::{FireBallEffect, StickyEffect};
 use crate::components::brick::Brick;
 use crate::components::collider::Collider;
 use crate::components::level_entity::LevelEntity;
@@ -11,6 +11,8 @@ use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
 use crate::components::wall::Wall;
 use crate::resources::score::Score;
+use crate::setup::level::MAX_BALL_SPEED;
+use crate::systems::particles::spawn_burst;
 
 const BONUS_DROP_CHANCE: f64 = 0.30; // 30% шанс дропа бонуса
 const BONUS_SIZE: f32 = 16.0;
@@ -99,18 +101,19 @@ pub fn ball_brick_collision_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut ball_query: Query<(&mut Velocity, &Transform, &Collider), With<Ball>>,
-    mut brick_query: Query<(Entity, &Transform, &Collider, &mut Brick)>,
+    mut ball_query: Query<(&mut Velocity, &Transform, &Collider, Option<&FireBallEffect>), With<Ball>>,
+    mut brick_query: Query<(Entity, &Transform, &Collider, &mut Brick, &MeshMaterial2d<ColorMaterial>)>,
     mut score: ResMut<Score>,
 ) {
     let mut rng = rand::thread_rng();
 
-    for (mut velocity, ball_tf, ball_col) in &mut ball_query {
+    for (mut velocity, ball_tf, ball_col, fire_effect) in &mut ball_query {
         let ball_pos = ball_tf.translation.truncate();
         let ball_half = Vec2::new(ball_col.half_width, ball_col.half_height);
+        let is_fire = fire_effect.is_some();
         let mut reflected = false;
 
-        for (brick_entity, brick_tf, brick_col, mut brick) in &mut brick_query {
+        for (brick_entity, brick_tf, brick_col, mut brick, brick_mat) in &mut brick_query {
             let brick_pos = brick_tf.translation.truncate();
             let brick_half = Vec2::new(brick_col.half_width, brick_col.half_height);
 
@@ -119,6 +122,13 @@ pub fn ball_brick_collision_system(
 
                 if brick.health == 0 {
                     score.value += brick.score_value;
+
+                    // Частицы взрыва цвета блока
+                    let color = materials.get(&brick_mat.0)
+                        .map(|m| m.color)
+                        .unwrap_or(Color::WHITE);
+                    spawn_burst(&mut commands, &mut meshes, &mut materials, brick_pos, color, 8, 120.0, 0.4);
+
                     commands.entity(brick_entity).despawn();
 
                     // Случайный дроп бонуса
@@ -137,12 +147,22 @@ pub fn ball_brick_collision_system(
                     }
                 }
 
-                if !reflected {
+                // FireBall: пробивает кирпичи насквозь — без отскока
+                if !is_fire && !reflected {
                     match side {
                         CollisionSide::Left | CollisionSide::Right => velocity.x = -velocity.x,
                         CollisionSide::Top | CollisionSide::Bottom => velocity.y = -velocity.y,
                     }
                     reflected = true;
+
+                    // Небольшое ускорение за каждый удар по кирпичу (классика Arkanoid)
+                    let speed = (velocity.x * velocity.x + velocity.y * velocity.y).sqrt();
+                    if speed > 0.0 {
+                        let new_speed = (speed * 1.005).min(MAX_BALL_SPEED);
+                        let scale = new_speed / speed;
+                        velocity.x *= scale;
+                        velocity.y *= scale;
+                    }
                 }
             }
         }
@@ -211,11 +231,13 @@ pub fn ball_paddle_collision_system(
 }
 
 fn random_bonus_type(rng: &mut impl Rng) -> BonusType {
-    match rng.gen_range(0..4) {
+    match rng.gen_range(0..6) {
         0 => BonusType::PaddleGrow,
         1 => BonusType::StickyPaddle,
         2 => BonusType::BallGrow,
-        _ => BonusType::GunPaddle,
+        3 => BonusType::GunPaddle,
+        4 => BonusType::FireBall,
+        _ => BonusType::MultiBall,
     }
 }
 
@@ -225,5 +247,7 @@ fn bonus_color(bonus_type: BonusType) -> Color {
         BonusType::StickyPaddle => Color::srgb(0.9, 0.9, 0.1), // жёлтый
         BonusType::BallGrow     => Color::srgb(0.2, 0.8, 0.9), // голубой
         BonusType::GunPaddle    => Color::srgb(0.9, 0.4, 0.1), // оранжевый
+        BonusType::FireBall     => Color::srgb(1.0, 0.3, 0.0), // красно-оранжевый
+        BonusType::MultiBall    => Color::srgb(0.8, 0.3, 1.0), // фиолетовый
     }
 }

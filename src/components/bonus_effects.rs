@@ -20,11 +20,17 @@ pub struct BallGrowEffect {
     pub original_half_size: f32,
 }
 
-/// Активный эффект: ракетка стреляет снарядами (Z или Ctrl)
+/// Активный эффект: ракетка стреляет снарядами (LeftCtrl / RightCtrl)
 #[derive(Component)]
 pub struct GunPaddleEffect {
     /// Общая длительность эффекта
     pub timer: Timer,
     /// Кулдаун между выстрелами
     pub fire_rate: Timer,
+}
+
+/// Активный эффект: огненный мяч — пробивает кирпичи насквозь без отскока
+#[derive(Component)]
+pub struct FireBallEffect {
+    pub timer: Timer,
 }
