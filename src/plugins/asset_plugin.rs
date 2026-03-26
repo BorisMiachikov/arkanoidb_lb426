@@ -13,6 +13,10 @@ pub struct MenuMusicController;
 #[derive(Component)]
 pub struct MusicController;
 
+/// Ресурс: музыка включена/выключена (F2)
+#[derive(Resource)]
+pub struct MusicEnabled(pub bool);
+
 pub struct AssetPlugin;
 
 impl Plugin for AssetPlugin {
@@ -55,6 +59,7 @@ impl Plugin for AssetPlugin {
             }
         };
         app.insert_resource(game_assets);
+        app.insert_resource(MusicEnabled(true));
 
         // Музыка меню
         app.add_systems(OnEnter(GameState::MainMenu), start_menu_music);
@@ -64,8 +69,8 @@ impl Plugin for AssetPlugin {
         app.add_systems(OnEnter(GameState::Playing), start_gameplay_music);
         app.add_systems(OnEnter(GameState::MainMenu), stop_gameplay_music);
 
-        // Воспроизведение звуков
-        app.add_systems(Update, play_sounds_system);
+        // Воспроизведение звуков + управление музыкой
+        app.add_systems(Update, (play_sounds_system, music_control_system));
     }
 }
 
@@ -116,6 +121,28 @@ fn stop_gameplay_music(
 ) {
     for entity in &query {
         commands.entity(entity).despawn();
+    }
+}
+
+// ─── Управление музыкой ──────────────────────────────────────────────────────
+
+/// F2 — переключить музыку вкл/выкл; синхронизирует все активные синки каждый кадр
+/// (в т.ч. только что заспавненные после смены уровня/состояния)
+fn music_control_system(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut enabled: ResMut<MusicEnabled>,
+    sinks: Query<&AudioSink, Or<(With<MusicController>, With<MenuMusicController>)>>,
+) {
+    if keys.just_pressed(KeyCode::F2) {
+        enabled.0 = !enabled.0;
+    }
+
+    for sink in &sinks {
+        if enabled.0 && sink.is_paused() {
+            sink.play();
+        } else if !enabled.0 && !sink.is_paused() {
+            sink.pause();
+        }
     }
 }
 
