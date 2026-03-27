@@ -45,13 +45,14 @@
 - [x] `CurrentLevel` ресурс, wraparound после последнего уровня
 
 ## ✅ Этап 8: Бонусы (Power-ups)
-- [x] Дроп из блоков — 30% шанс, 6 типов
+- [x] Дроп из блоков — 30% шанс, 7 типов
 - [x] PaddleGrow — ракетка ×1.5 на 10 сек
 - [x] StickyPaddle — мяч прилипает при касании на 10 сек
 - [x] BallGrow — мяч ×1.5 на 10 сек
 - [x] GunPaddle — пулемёт на 15 сек
 - [x] FireBall — пробивает блоки насквозь на 8 сек
 - [x] MultiBall — мяч делится на 3
+- [x] ExtraLife (розовый) — +1 жизнь, макс. 9
 - [x] Откат всех эффектов по таймеру
 
 ## ✅ Этап 9: НЛО (UFO)
@@ -67,13 +68,15 @@
 
 ## ✅ Этап 11: UI
 - [x] HUD: SCORE (слева), LEVEL (центр), BEST (центр-право), LIVES (справа)
+- [x] Жизни — иконки-ракетки (`Node + BackgroundColor`), перестраиваются динамически
 - [x] Строка активных бонусов с таймерами (`[PADDLE+ 8.3s]` и т.д.)
 - [x] Все тексты на латинице (дефолтный шрифт Bevy — ASCII only)
 
 ## ✅ Этап 12: Game States (экраны)
 - [x] MainMenu — навигация W/S или ↑↓, ENTER подтверждает
-- [x] Пункты меню: PLAY GAME / LEVEL EDITOR / QUIT
-- [x] GameOver — итоговый счёт, сообщение NEW RECORD если рекорд побит
+- [x] Пункты меню: PLAY GAME / LEVEL EDITOR / OPTIONS / QUIT
+- [x] Options — громкость музыки и SFX (←/→ ±10%), ESC → MainMenu
+- [x] GameOver — итоговый счёт, NEW RECORD; Enter → рестарт, ESC → MainMenu
 - [x] LevelComplete — уровень + счёт, ENTER → следующий уровень
 - [x] Pause — оверлей через `Paused(bool)`, ESC повторно → выход в MainMenu
 
@@ -86,13 +89,18 @@
 - [x] GunPaddle — пулемёт (Ctrl, 5 выстр/сек, снаряды 520 px/s)
 - [x] FireBall — огненный мяч, пробивает блоки без отскока
 - [x] MultiBall — деление на 3 мяча
+- [x] ExtraLife — бонус +1 жизнь (макс. 9)
 - [x] Система рекордов — HighScore, сохранение в `highscore.dat`
 - [x] Редактор уровней — LevelEditor состояние, мышь+клавиатура, `custom_level.lvl`
 - [x] Частицы — взрыв блоков/НЛО (spawn_burst), след мяча (ball_trail)
 - [x] Ассеты инфраструктура — `GameAssets`, `SoundEvent`, `AssetPlugin`
-- [x] Музыка меню (`music/menu.ogg`) и геймплея (`music/gameplay.ogg`)
+- [x] Музыка меню и геймплея (LOOP, играет в MainMenu + Options)
 - [x] Звуковые события (10 типов) во всех игровых системах
 - [x] F2 — переключение музыки вкл/выкл (`MusicEnabled`)
+- [x] Меню Options — `AudioSettings { music_volume, sfx_volume }`, ←/→ ±10%
+- [x] Жизни как иконки-ракетки в HUD (динамические)
+- [x] ESC из GameOver → MainMenu
+- [x] Спрайты: ракетка и блоки (Normal/Strong/Strong-hit) — Sprite; остальные Mesh2d
 - [ ] Боссы
 
 ---
@@ -108,6 +116,21 @@
 | Escape | пауза; повторно → MainMenu |
 | F2 | музыка вкл/выкл |
 | `*` Numpad | **[DEBUG]** следующий уровень |
+
+## Управление (GameOver)
+
+| Клавиша | Действие |
+|---------|----------|
+| Enter / Space | рестарт с первого уровня |
+| ESC | выход в MainMenu (сброс счёта/уровня) |
+
+## Управление (Options)
+
+| Клавиша | Действие |
+|---------|----------|
+| W / S или ↑ / ↓ | навигация |
+| ← / → | изменить громкость ±10% |
+| ESC | вернуться в MainMenu |
 
 ## Управление (LevelEditor)
 

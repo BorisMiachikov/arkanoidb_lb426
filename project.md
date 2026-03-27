@@ -63,6 +63,7 @@
 | GunPaddle | оранжевый | пулемёт (Ctrl) | 15 сек |
 | FireBall | красно-оранж. | пробивает блоки | 8 сек |
 | MultiBall | фиолетовый | мяч → 3 мяча | мгновенно |
+| ExtraLife | розовый | +1 жизнь (макс. 9) | мгновенно |
 
 Падают вниз, активируются при касании ракеткой.
 HUD показывает активные бонусы с оставшимися таймерами.
@@ -132,11 +133,19 @@ HUD показывает активные бонусы с оставшимися
 | F2 | музыка вкл/выкл |
 | `*` Numpad | **[DEBUG]** следующий уровень |
 
-### MainMenu
+### MainMenu / Options
 | Клавиша | Действие |
 |---------|----------|
 | W / ↑ или S / ↓ | навигация |
 | Enter / Space | подтвердить выбор |
+| ← / → | изменить громкость (только в Options) |
+| ESC | назад в MainMenu (только в Options) |
+
+### GameOver
+| Клавиша | Действие |
+|---------|----------|
+| Enter / Space | рестарт с первого уровня |
+| ESC | выход в MainMenu |
 
 ### LevelEditor
 | Клавиша | Действие |
@@ -155,16 +164,18 @@ HUD показывает активные бонусы с оставшимися
 ## 8. Состояния игры
 
 ```
-Startup → MainMenu ──────────────── LevelEditor
-               │                         │ ESC → MainMenu
-               ↓ ENTER (Play Game)        │ P   → Playing
+Startup → MainMenu ── Options (ESC → MainMenu)
+               │    └ LevelEditor (ESC → MainMenu, P → Playing)
+               ↓ ENTER (Play Game)
            Playing → LevelComplete → Playing
-                  ↘ GameOver → Playing
+                  ↘ GameOver → Playing (Enter)
+                            ↘ MainMenu (ESC)
 ```
 
 | Состояние | Описание |
 |-----------|----------|
-| `MainMenu` | Меню: PLAY GAME / LEVEL EDITOR / QUIT |
+| `MainMenu` | Меню: PLAY GAME / LEVEL EDITOR / OPTIONS / QUIT |
+| `Options` | Настройки громкости музыки и SFX |
 | `Playing` | Активная игра |
 | `LevelEditor` | Редактор кастомного уровня |
 | `GameOver` | Игра окончена |
@@ -209,10 +220,11 @@ MusicController / MenuMusicController (маркеры музыки)
 ### Ресурсы
 
 ```
-GameState (States enum): MainMenu | Playing | GameOver | LevelComplete | LevelEditor
+GameState (States enum): MainMenu | Options | Playing | GameOver | LevelComplete | LevelEditor
 Score, Lives, CurrentLevel, BallSpeedMultiplier
 HighScore (сохранение в highscore.dat)
-DebugSkipPending, Paused, MenuSelection
+DebugSkipPending, Paused, MenuSelection, OptionsSelection
+AudioSettings { music_volume, sfx_volume }  — управляется в Options
 GameAssets (все Handle<AudioSource> и Handle<Image>)
 MusicEnabled(bool)  — F2
 EditorData          — данные редактора уровней
@@ -238,11 +250,12 @@ src/
 
 ## 10. UI
 
-- **HUD**: SCORE (слева), LEVEL (центр), BEST (центр-право), LIVES (справа)
+- **HUD**: SCORE (слева), LEVEL (центр), BEST (центр-право), LIVES — иконки-ракетки (справа)
 - **Бонусы**: строка под HUD, активные эффекты с оставшимся временем
-- **Экраны**: MainMenu (3 пункта), GameOver, LevelComplete, Pause
+- **Экраны**: MainMenu (4 пункта), Options (громкость), GameOver, LevelComplete, Pause
 - **Редактор**: сетка ячеек + UI подсказки (кисть, ряды, команды)
 - Весь текст на **ASCII/латинице** — дефолтный шрифт Bevy не поддерживает кириллицу
+- UI-изображения: `ImageNode` (не `Sprite`)
 
 ---
 
@@ -253,11 +266,13 @@ assets/
 ├── music/    menu.ogg, gameplay.ogg
 ├── sounds/   ball_hit.ogg, brick_hit.ogg, brick_break.ogg, bonus_pickup.ogg,
 │             life_lost.ogg, game_over.ogg, bullet_fire.ogg, ufo_hit.ogg, bomb_hit.ogg
-└── sprites/  paddle.png, ball.png, ball_fire.png, brick_normal.png, brick_strong.png,
-              brick_strong_hit.png, ufo.png, bullet.png, bomb.png, bonus_*.png ×6
+└── sprites/  padle.png (⚠ опечатка в имени — именно так), ball.png, ball_fire.png,
+              brick_normal.png, brick_strong.png, brick_strong_hit.png,
+              ufo.png, bullet.png, bomb.png, bonus_*.png ×6
 ```
 
 Отсутствующие файлы не крашат игру — Bevy загружает асинхронно.
+Ракетка и блоки используют `Sprite`; остальные объекты — `Mesh2d`.
 
 ---
 
