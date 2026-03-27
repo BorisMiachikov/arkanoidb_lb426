@@ -8,6 +8,8 @@ pub enum GameState {
     #[default]
     MainMenu,
     Options,
+    HighScores,
+    EnterName,
     Playing,
     GameOver,
     LevelComplete,

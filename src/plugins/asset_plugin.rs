@@ -62,9 +62,11 @@ impl Plugin for AssetPlugin {
         app.insert_resource(game_assets);
         app.insert_resource(MusicEnabled(true));
 
-        // Музыка меню — играет в MainMenu и Options
-        app.add_systems(OnEnter(GameState::MainMenu), start_menu_music);
-        app.add_systems(OnEnter(GameState::Options),  start_menu_music);
+        // Музыка меню — играет в MainMenu, Options, HighScores, EnterName
+        app.add_systems(OnEnter(GameState::MainMenu),   start_menu_music);
+        app.add_systems(OnEnter(GameState::Options),    start_menu_music);
+        app.add_systems(OnEnter(GameState::HighScores), start_menu_music);
+        app.add_systems(OnEnter(GameState::EnterName),  start_menu_music);
         // Останавливаем музыку меню только при входе в игру/редактор
         app.add_systems(OnEnter(GameState::Playing),     stop_menu_music);
         app.add_systems(OnEnter(GameState::LevelEditor), stop_menu_music);

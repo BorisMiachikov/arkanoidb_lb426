@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::components::bonus_effects::{BallGrowEffect, FireBallEffect, GunPaddleEffect, PaddleGrowEffect, StickyEffect};
 use crate::resources::game_state::GameState;
-use crate::resources::score::{AudioSettings, CurrentLevel, HighScore, Lives, MenuSelection, OptionsSelection, Paused, Score};
+use crate::resources::score::{AudioSettings, CurrentLevel, HighScore, Lives, MenuSelection, NameInput, OptionsSelection, Paused, Score, ScoreTable};
 
 // ─── Маркеры HUD ────────────────────────────────────────────────────────────
 
@@ -34,6 +34,10 @@ struct MenuItemText(usize);
 #[derive(Component)]
 struct OptionsItemText(usize);
 
+/// Маркер строки ввода имени на экране EnterName
+#[derive(Component)]
+struct EnterNameText;
+
 // ─── Маркеры оверлеев ───────────────────────────────────────────────────────
 
 /// Маркер: любой экран-оверлей (очищается при OnExit состояния)
@@ -60,6 +64,14 @@ impl Plugin for UiPlugin {
         app.add_systems(OnEnter(GameState::Options), (reset_options_selection, spawn_options_screen).chain());
         app.add_systems(OnExit(GameState::Options), despawn_overlay);
 
+        // High Scores
+        app.add_systems(OnEnter(GameState::HighScores), spawn_highscores_screen);
+        app.add_systems(OnExit(GameState::HighScores), despawn_overlay);
+
+        // Enter Name
+        app.add_systems(OnEnter(GameState::EnterName), spawn_enter_name_screen);
+        app.add_systems(OnExit(GameState::EnterName), despawn_overlay);
+
         // GameOver
         app.add_systems(OnEnter(GameState::GameOver), spawn_game_over);
         app.add_systems(OnExit(GameState::GameOver), despawn_overlay);
@@ -80,6 +92,7 @@ impl Plugin for UiPlugin {
                 update_pause_overlay,
                 update_menu_selection_ui.run_if(in_state(GameState::MainMenu)),
                 update_options_ui.run_if(in_state(GameState::Options)),
+                update_enter_name_ui.run_if(in_state(GameState::EnterName)),
             ),
         );
     }
@@ -323,7 +336,7 @@ fn spawn_hint(parent: &mut ChildBuilder, text: &str) {
     ));
 }
 
-const MENU_ITEMS: &[&str] = &["PLAY GAME", "LEVEL EDITOR", "OPTIONS", "QUIT"];
+const MENU_ITEMS: &[&str] = &["PLAY GAME", "LEVEL EDITOR", "HIGH SCORES", "OPTIONS", "QUIT"];
 
 // Главное меню
 fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>) {
@@ -433,11 +446,85 @@ fn update_options_ui(
     }
 }
 
+// ─── High Scores ────────────────────────────────────────────────────────────
+
+fn spawn_highscores_screen(mut commands: Commands, score_table: Res<ScoreTable>) {
+    let root = spawn_overlay_root(&mut commands);
+    commands.entity(root).with_children(|parent| {
+        spawn_panel(parent, |panel| {
+            spawn_title(panel, "HIGH SCORES", Color::srgb(1.0, 0.8, 0.2));
+
+            if score_table.entries.is_empty() {
+                spawn_subtitle(panel, "No scores yet. Be the first!");
+            } else {
+                for (i, entry) in score_table.entries.iter().enumerate() {
+                    let color = match i {
+                        0 => Color::srgb(1.0, 0.85, 0.1),  // золото
+                        1 => Color::srgb(0.85, 0.85, 0.85), // серебро
+                        2 => Color::srgb(0.9, 0.6, 0.3),    // бронза
+                        _ => Color::srgb(0.65, 0.65, 0.65),
+                    };
+                    let text = format!("{:2}.  {:<12}{:>7}", i + 1, entry.name, entry.score);
+                    panel.spawn((
+                        Text::new(text),
+                        TextFont { font_size: 20.0, ..default() },
+                        TextColor(color),
+                    ));
+                }
+            }
+
+            spawn_hint(panel, "[ ENTER / ESC  Back ]");
+        });
+    });
+}
+
+// ─── Enter Name ─────────────────────────────────────────────────────────────
+
+fn spawn_enter_name_screen(
+    mut commands: Commands,
+    score: Res<Score>,
+    name_input: Res<NameInput>,
+) {
+    let root = spawn_overlay_root(&mut commands);
+    commands.entity(root).with_children(|parent| {
+        spawn_panel(parent, |panel| {
+            spawn_title(panel, "NEW HIGH SCORE!", Color::srgb(1.0, 0.9, 0.2));
+            spawn_subtitle(panel, &format!("Score: {}", score.value));
+
+            panel.spawn((
+                Text::new(format!("> {}_", name_input.text)),
+                TextFont { font_size: 28.0, ..default() },
+                TextColor(Color::WHITE),
+                EnterNameText,
+            ));
+
+            spawn_hint(panel, "[ Letters & digits - max 10 chars ]");
+            spawn_hint(panel, "[ ENTER  Save ]  [ ESC  Skip ]");
+        });
+    });
+}
+
+fn update_enter_name_ui(
+    name_input: Res<NameInput>,
+    mut query: Query<&mut Text, With<EnterNameText>>,
+) {
+    if !name_input.is_changed() { return; }
+    if let Ok(mut text) = query.get_single_mut() {
+        **text = format!("> {}_", name_input.text);
+    }
+}
+
 // GameOver
-fn spawn_game_over(mut commands: Commands, score: Res<Score>, highscore: Res<HighScore>) {
+fn spawn_game_over(
+    mut commands: Commands,
+    score: Res<Score>,
+    highscore: Res<HighScore>,
+    score_table: Res<ScoreTable>,
+) {
     let score_val = score.value;
     let best = highscore.value;
     let is_new_record = score_val > 0 && score_val >= best;
+    let qualifies = score_table.qualifies(score_val);
     let root = spawn_overlay_root(&mut commands);
     commands.entity(root).with_children(|parent| {
         spawn_panel(parent, |panel| {
@@ -445,10 +532,14 @@ fn spawn_game_over(mut commands: Commands, score: Res<Score>, highscore: Res<Hig
             spawn_subtitle(panel, &format!("Score: {}", score_val));
             if is_new_record {
                 spawn_subtitle(panel, "*** NEW RECORD! ***");
-            } else {
+            } else if best > 0 {
                 spawn_hint(panel, &format!("Best: {}", best));
             }
-            spawn_hint(panel, "[ ENTER to Restart ]");
+            if qualifies {
+                spawn_hint(panel, "[ ENTER - Add to High Scores ]  [ ESC - Menu ]");
+            } else {
+                spawn_hint(panel, "[ ENTER - Restart ]  [ ESC - Menu ]");
+            }
         });
     });
 }

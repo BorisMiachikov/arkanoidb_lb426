@@ -8,7 +8,13 @@ use crate::resources::game_state::GameState;
 use crate::resources::level_data::LEVELS;
 use crate::resources::editor::EditorData;
 use crate::events::SoundEvent;
-use crate::resources::score::{AudioSettings, CurrentLevel, DebugSkipPending, HighScore, Lives, MenuSelection, OptionsSelection, Paused, Score};
+use bevy::input::keyboard::{Key, KeyboardInput};
+use bevy::input::ButtonState;
+
+use crate::resources::score::{
+    AudioSettings, CurrentLevel, DebugSkipPending, HighScore, Lives,
+    MenuSelection, NameInput, OptionsSelection, Paused, Score, ScoreEntry, ScoreTable,
+};
 use crate::setup::level::HALF_H;
 
 /// Главное меню: навигация и выбор
@@ -17,28 +23,31 @@ pub fn handle_main_menu_system(
     mut next_state: ResMut<NextState<GameState>>,
     mut selection: ResMut<MenuSelection>,
     mut editor: ResMut<EditorData>,
+    mut score: ResMut<Score>,
+    mut lives: ResMut<Lives>,
+    mut current_level: ResMut<CurrentLevel>,
     mut app_exit: EventWriter<AppExit>,
 ) {
-    // Навигация: вверх/вниз
     if keys.just_pressed(KeyCode::ArrowUp) || keys.just_pressed(KeyCode::KeyW) {
-        if selection.0 > 0 {
-            selection.0 -= 1;
-        }
+        if selection.0 > 0 { selection.0 -= 1; }
     }
     if keys.just_pressed(KeyCode::ArrowDown) || keys.just_pressed(KeyCode::KeyS) {
-        selection.0 = (selection.0 + 1).min(3);
+        selection.0 = (selection.0 + 1).min(4);
     }
 
-    // Подтвердить
     if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space) {
         match selection.0 {
             0 => {
+                score.value = 0;
+                lives.count = 3;
+                current_level.number = 0;
                 editor.active = false;
                 next_state.set(GameState::Playing);
             }
             1 => next_state.set(GameState::LevelEditor),
-            2 => next_state.set(GameState::Options),
-            3 => { app_exit.send(AppExit::Success); }
+            2 => next_state.set(GameState::HighScores),
+            3 => next_state.set(GameState::Options),
+            4 => { app_exit.send(AppExit::Success); }
             _ => {}
         }
     }
@@ -139,7 +148,9 @@ pub fn track_highscore_system(score: Res<Score>, mut highscore: ResMut<HighScore
     }
 }
 
-/// В состоянии GameOver: Enter/Space → рестарт с первого уровня, ESC → главное меню
+/// В состоянии GameOver:
+/// - если попал в топ: Enter → ввод имени, ESC → меню
+/// - иначе: Enter/Space → рестарт, ESC → меню
 pub fn handle_game_over_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
@@ -147,20 +158,91 @@ pub fn handle_game_over_system(
     mut lives: ResMut<Lives>,
     mut current_level: ResMut<CurrentLevel>,
     mut editor: ResMut<EditorData>,
+    score_table: Res<ScoreTable>,
+    mut name_input: ResMut<NameInput>,
 ) {
-    let restart = keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space);
-    let to_menu = keys.just_pressed(KeyCode::Escape);
-
-    if restart || to_menu {
+    if keys.just_pressed(KeyCode::Escape) {
         score.value = 0;
         lives.count = 3;
         current_level.number = 0;
         editor.active = false;
-        if to_menu {
-            next_state.set(GameState::MainMenu);
+        next_state.set(GameState::MainMenu);
+        return;
+    }
+
+    if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space) {
+        if score_table.qualifies(score.value) {
+            name_input.text.clear();
+            next_state.set(GameState::EnterName);
         } else {
+            score.value = 0;
+            lives.count = 3;
+            current_level.number = 0;
+            editor.active = false;
             next_state.set(GameState::Playing);
         }
+    }
+}
+
+/// Ввод имени игрока при попадании в таблицу рекордов
+pub fn handle_enter_name_system(
+    mut keyboard_events: EventReader<KeyboardInput>,
+    mut name_input: ResMut<NameInput>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut score_table: ResMut<ScoreTable>,
+    score: Res<Score>,
+) {
+    for event in keyboard_events.read() {
+        if event.state != ButtonState::Pressed {
+            continue;
+        }
+        match &event.logical_key {
+            Key::Character(c) => {
+                if name_input.text.len() < 10 {
+                    for ch in c.chars() {
+                        if ch.is_ascii_alphanumeric() {
+                            name_input.text.push(ch.to_ascii_uppercase());
+                        }
+                    }
+                }
+            }
+            Key::Backspace => { name_input.text.pop(); }
+            Key::Enter => {
+                let name = if name_input.text.trim().is_empty() {
+                    "PLAYER".to_string()
+                } else {
+                    name_input.text.trim().to_ascii_uppercase()
+                };
+                score_table.add(ScoreEntry { name, score: score.value });
+                score_table.save();
+                next_state.set(GameState::HighScores);
+            }
+            Key::Escape => {
+                next_state.set(GameState::HighScores);
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Таблица рекордов: Enter/ESC → главное меню (со сбросом)
+pub fn handle_highscores_system(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut score: ResMut<Score>,
+    mut lives: ResMut<Lives>,
+    mut current_level: ResMut<CurrentLevel>,
+    mut editor: ResMut<EditorData>,
+) {
+    if keys.just_pressed(KeyCode::Escape)
+        || keys.just_pressed(KeyCode::Enter)
+        || keys.just_pressed(KeyCode::Space)
+    {
+        score.value = 0;
+        lives.count = 3;
+        current_level.number = 0;
+        editor.active = false;
+        next_state.set(GameState::MainMenu);
     }
 }
 
