@@ -107,6 +107,9 @@ pub fn check_ball_lost_system(
                     velocity.x = 0.0;
                     velocity.y = 0.0;
                     transform.translation.x = 0.0;
+                    transform.translation.y = crate::setup::level::PADDLE_Y
+                        + crate::setup::level::PADDLE_HEIGHT
+                        + crate::setup::level::BALL_SIZE;
                     commands.entity(ball_entity).insert(BallStuck);
                     first = false;
                 } else {
