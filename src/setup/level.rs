@@ -9,6 +9,7 @@ use crate::components::level_entity::LevelEntity;
 use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
 use crate::components::wall::Wall;
+use crate::resources::assets::GameAssets;
 use crate::resources::editor::EditorData;
 use crate::resources::level_data::{LevelConfig, LEVELS};
 use crate::resources::score::{BallSpeedMultiplier, CurrentLevel};
@@ -44,8 +45,9 @@ pub fn spawn_level_entities(
     current_level: Res<CurrentLevel>,
     mut speed_multiplier: ResMut<BallSpeedMultiplier>,
     editor_data: Res<EditorData>,
+    game_assets: Res<GameAssets>,
 ) {
-    spawn_paddle(&mut commands, &mut meshes, &mut materials);
+    spawn_paddle(&mut commands, &game_assets);
     spawn_ball(&mut commands, &mut meshes, &mut materials);
     spawn_walls(&mut commands, &mut meshes, &mut materials);
 
@@ -53,12 +55,12 @@ pub fn spawn_level_entities(
         // Кастомный уровень из редактора — без НЛО, базовая скорость
         speed_multiplier.0 = 1.0;
         let grid_refs: Vec<&[u8]> = editor_data.grid.iter().map(|r| r.as_slice()).collect();
-        spawn_bricks(&mut commands, &mut meshes, &mut materials, &grid_refs);
+        spawn_bricks(&mut commands, &game_assets, &grid_refs);
     } else {
         let level_idx = (current_level.number as usize).min(LEVELS.len() - 1);
         let config = &LEVELS[level_idx];
         speed_multiplier.0 = config.ball_speed_multiplier;
-        spawn_bricks(&mut commands, &mut meshes, &mut materials, config.grid);
+        spawn_bricks(&mut commands, &game_assets, config.grid);
         spawn_ufos(&mut commands, &mut meshes, &mut materials, config);
     }
 }
@@ -72,15 +74,17 @@ pub fn cleanup_level(mut commands: Commands, query: Query<Entity, With<LevelEnti
 
 fn spawn_paddle(
     commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<ColorMaterial>>,
+    game_assets: &Res<GameAssets>,
 ) {
     commands.spawn((
         LevelEntity,
         Paddle::default(),
         Collider::new(PADDLE_WIDTH, PADDLE_HEIGHT),
-        Mesh2d(meshes.add(Rectangle::new(PADDLE_WIDTH, PADDLE_HEIGHT))),
-        MeshMaterial2d(materials.add(Color::from(css::STEEL_BLUE))),
+        Sprite {
+            image: game_assets.sprite_paddle.clone(),
+            custom_size: Some(Vec2::new(PADDLE_WIDTH, PADDLE_HEIGHT)),
+            ..default()
+        },
         Transform::from_xyz(0.0, PADDLE_Y, 1.0),
     ));
 }
@@ -155,11 +159,10 @@ fn spawn_ufos(
 
 fn spawn_bricks(
     commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<ColorMaterial>>,
+    game_assets: &Res<GameAssets>,
     grid: &[&[u8]],
 ) {
-    // Цвета рядов для обычных блоков (тип 1)
+    // Цвета рядов для обычных блоков (тип 1) — используются как тинт спрайта
     let row_colors = [
         Color::srgb(0.2, 0.7, 0.9), // голубой
         Color::srgb(0.2, 0.8, 0.2), // зелёный
@@ -168,7 +171,6 @@ fn spawn_bricks(
         Color::srgb(0.7, 0.3, 0.9), // фиолетовый
         Color::srgb(0.2, 0.7, 0.9), // повтор
     ];
-    let strong_color = Color::srgb(0.9, 0.2, 0.2); // красный — прочный
 
     let cols = grid.iter().map(|r| r.len()).max().unwrap_or(0);
     let total_w = cols as f32 * BRICK_WIDTH + (cols.saturating_sub(1)) as f32 * BRICK_GAP;
@@ -184,12 +186,19 @@ fn spawn_bricks(
                 continue;
             }
             let x = start_x + col as f32 * step_x;
-            let (brick_type, health, score_value, color) = match cell {
-                2 => (BrickType::Strong, 2u32, 200u32, strong_color),
+            let (brick_type, health, score_value, image, color) = match cell {
+                2 => (
+                    BrickType::Strong,
+                    2u32,
+                    200u32,
+                    game_assets.sprite_brick_strong.clone(),
+                    Color::WHITE,
+                ),
                 _ => (
                     BrickType::Normal,
                     1,
                     100,
+                    game_assets.sprite_brick_normal.clone(),
                     row_colors[row % row_colors.len()],
                 ),
             };
@@ -198,8 +207,12 @@ fn spawn_bricks(
                 LevelEntity,
                 Brick { brick_type, health, score_value },
                 Collider::new(BRICK_WIDTH, BRICK_HEIGHT),
-                Mesh2d(meshes.add(Rectangle::new(BRICK_WIDTH, BRICK_HEIGHT))),
-                MeshMaterial2d(materials.add(color)),
+                Sprite {
+                    image,
+                    custom_size: Some(Vec2::new(BRICK_WIDTH, BRICK_HEIGHT)),
+                    color,
+                    ..default()
+                },
                 Transform::from_xyz(x, y, 0.5),
             ));
         }

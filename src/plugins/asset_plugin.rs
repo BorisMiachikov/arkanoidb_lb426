@@ -41,7 +41,7 @@ impl Plugin for AssetPlugin {
                 sound_bomb_hit:     asset_server.load("sounds/bomb_hit.ogg"),
                 music_menu:         asset_server.load("music/menu.ogg"),
                 music_gameplay:     asset_server.load("music/gameplay.ogg"),
-                sprite_paddle:            asset_server.load("sprites/paddle.png"),
+                sprite_paddle:            asset_server.load("sprites/padle.png"),
                 sprite_ball:              asset_server.load("sprites/ball.png"),
                 sprite_ball_fire:         asset_server.load("sprites/ball_fire.png"),
                 sprite_brick_normal:      asset_server.load("sprites/brick_normal.png"),

@@ -11,6 +11,7 @@ use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
 use crate::components::wall::Wall;
 use crate::events::SoundEvent;
+use crate::resources::assets::GameAssets;
 use crate::resources::score::Score;
 use crate::setup::level::MAX_BALL_SPEED;
 use crate::systems::particles::spawn_burst;
@@ -105,9 +106,10 @@ pub fn ball_brick_collision_system(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut ball_query: Query<(&mut Velocity, &Transform, &Collider, Option<&FireBallEffect>), With<Ball>>,
-    mut brick_query: Query<(Entity, &Transform, &Collider, &mut Brick, &MeshMaterial2d<ColorMaterial>)>,
+    mut brick_query: Query<(Entity, &Transform, &Collider, &mut Brick, &mut Sprite)>,
     mut score: ResMut<Score>,
     mut sound_events: EventWriter<SoundEvent>,
+    game_assets: Res<GameAssets>,
 ) {
     let mut rng = rand::thread_rng();
 
@@ -117,7 +119,7 @@ pub fn ball_brick_collision_system(
         let is_fire = fire_effect.is_some();
         let mut reflected = false;
 
-        for (brick_entity, brick_tf, brick_col, mut brick, brick_mat) in &mut brick_query {
+        for (brick_entity, brick_tf, brick_col, mut brick, mut brick_sprite) in &mut brick_query {
             let brick_pos = brick_tf.translation.truncate();
             let brick_half = Vec2::new(brick_col.half_width, brick_col.half_height);
 
@@ -129,9 +131,7 @@ pub fn ball_brick_collision_system(
                     sound_events.send(SoundEvent::BrickBreak);
 
                     // Частицы взрыва цвета блока
-                    let color = materials.get(&brick_mat.0)
-                        .map(|m| m.color)
-                        .unwrap_or(Color::WHITE);
+                    let color = brick_sprite.color;
                     spawn_burst(&mut commands, &mut meshes, &mut materials, brick_pos, color, 8, 120.0, 0.4);
 
                     commands.entity(brick_entity).despawn();
@@ -154,6 +154,10 @@ pub fn ball_brick_collision_system(
 
                 if brick.health > 0 {
                     sound_events.send(SoundEvent::BallHitBrick);
+                    // Strong brick: swap to damaged sprite after first hit
+                    if brick.health == 1 {
+                        brick_sprite.image = game_assets.sprite_brick_strong_hit.clone();
+                    }
                 }
 
                 // FireBall: пробивает кирпичи насквозь — без отскока
