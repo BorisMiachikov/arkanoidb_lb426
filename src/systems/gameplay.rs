@@ -8,7 +8,7 @@ use crate::resources::game_state::GameState;
 use crate::resources::level_data::LEVELS;
 use crate::resources::editor::EditorData;
 use crate::events::SoundEvent;
-use crate::resources::score::{CurrentLevel, DebugSkipPending, HighScore, Lives, MenuSelection, Paused, Score};
+use crate::resources::score::{AudioSettings, CurrentLevel, DebugSkipPending, HighScore, Lives, MenuSelection, OptionsSelection, Paused, Score};
 use crate::setup::level::HALF_H;
 
 /// Главное меню: навигация и выбор
@@ -26,7 +26,7 @@ pub fn handle_main_menu_system(
         }
     }
     if keys.just_pressed(KeyCode::ArrowDown) || keys.just_pressed(KeyCode::KeyS) {
-        selection.0 = (selection.0 + 1).min(2);
+        selection.0 = (selection.0 + 1).min(3);
     }
 
     // Подтвердить
@@ -37,7 +37,8 @@ pub fn handle_main_menu_system(
                 next_state.set(GameState::Playing);
             }
             1 => next_state.set(GameState::LevelEditor),
-            2 => { app_exit.send(AppExit::Success); }
+            2 => next_state.set(GameState::Options),
+            3 => { app_exit.send(AppExit::Success); }
             _ => {}
         }
     }
@@ -179,6 +180,44 @@ pub fn debug_auto_advance_system(
     if skip_pending.0 {
         skip_pending.0 = false;
         next_state.set(GameState::Playing);
+    }
+}
+
+/// Options: навигация W/S, изменение Left/Right, ESC/Enter(Back) → MainMenu
+pub fn handle_options_system(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut selection: ResMut<OptionsSelection>,
+    mut settings: ResMut<AudioSettings>,
+) {
+    if keys.just_pressed(KeyCode::ArrowUp) || keys.just_pressed(KeyCode::KeyW) {
+        if selection.0 > 0 { selection.0 -= 1; }
+    }
+    if keys.just_pressed(KeyCode::ArrowDown) || keys.just_pressed(KeyCode::KeyS) {
+        selection.0 = (selection.0 + 1).min(2);
+    }
+
+    let delta = if keys.just_pressed(KeyCode::ArrowLeft) || keys.just_pressed(KeyCode::KeyA) {
+        -0.1f32
+    } else if keys.just_pressed(KeyCode::ArrowRight) || keys.just_pressed(KeyCode::KeyD) {
+        0.1f32
+    } else {
+        0.0
+    };
+
+    if delta != 0.0 {
+        match selection.0 {
+            0 => settings.music_volume = (settings.music_volume + delta).clamp(0.0, 1.0),
+            1 => settings.sfx_volume   = (settings.sfx_volume   + delta).clamp(0.0, 1.0),
+            _ => {}
+        }
+    }
+
+    let back = keys.just_pressed(KeyCode::Escape)
+        || ((keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space))
+            && selection.0 == 2);
+    if back {
+        next_state.set(GameState::MainMenu);
     }
 }
 

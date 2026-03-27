@@ -1,9 +1,10 @@
 use bevy::prelude::*;
-use bevy::audio::PlaybackSettings;
+use bevy::audio::{PlaybackSettings, Volume};
 
 use crate::events::SoundEvent;
 use crate::resources::assets::GameAssets;
 use crate::resources::game_state::GameState;
+use crate::resources::score::AudioSettings;
 
 /// Маркер музыки главного меню
 #[derive(Component)]
@@ -70,7 +71,7 @@ impl Plugin for AssetPlugin {
         app.add_systems(OnEnter(GameState::MainMenu), stop_gameplay_music);
 
         // Воспроизведение звуков + управление музыкой
-        app.add_systems(Update, (play_sounds_system, music_control_system));
+        app.add_systems(Update, (play_sounds_system, music_control_system).chain());
     }
 }
 
@@ -126,11 +127,11 @@ fn stop_gameplay_music(
 
 // ─── Управление музыкой ──────────────────────────────────────────────────────
 
-/// F2 — переключить музыку вкл/выкл; синхронизирует все активные синки каждый кадр
-/// (в т.ч. только что заспавненные после смены уровня/состояния)
+/// F2 — переключить музыку вкл/выкл; синхронизирует громкость и pause/resume каждый кадр
 fn music_control_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut enabled: ResMut<MusicEnabled>,
+    settings: Res<AudioSettings>,
     sinks: Query<&AudioSink, Or<(With<MusicController>, With<MenuMusicController>)>>,
 ) {
     if keys.just_pressed(KeyCode::F2) {
@@ -138,6 +139,7 @@ fn music_control_system(
     }
 
     for sink in &sinks {
+        sink.set_volume(settings.music_volume);
         if enabled.0 && sink.is_paused() {
             sink.play();
         } else if !enabled.0 && !sink.is_paused() {
@@ -152,7 +154,12 @@ fn play_sounds_system(
     mut commands: Commands,
     mut events: EventReader<SoundEvent>,
     assets: Res<GameAssets>,
+    settings: Res<AudioSettings>,
 ) {
+    let sfx_settings = PlaybackSettings {
+        volume: Volume::new(settings.sfx_volume),
+        ..PlaybackSettings::DESPAWN
+    };
     for event in events.read() {
         let handle = match event {
             SoundEvent::BallHitWall    => assets.sound_ball_wall.clone(),
@@ -166,6 +173,6 @@ fn play_sounds_system(
             SoundEvent::UfoHit         => assets.sound_ufo_hit.clone(),
             SoundEvent::BombHit        => assets.sound_bomb_hit.clone(),
         };
-        commands.spawn((AudioPlayer::new(handle), PlaybackSettings::DESPAWN));
+        commands.spawn((AudioPlayer::new(handle), sfx_settings));
     }
 }

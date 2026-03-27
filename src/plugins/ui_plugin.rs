@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::components::bonus_effects::{BallGrowEffect, FireBallEffect, GunPaddleEffect, PaddleGrowEffect, StickyEffect};
 use crate::resources::game_state::GameState;
-use crate::resources::score::{CurrentLevel, HighScore, Lives, MenuSelection, Paused, Score};
+use crate::resources::score::{AudioSettings, CurrentLevel, HighScore, Lives, MenuSelection, OptionsSelection, Paused, Score};
 
 // ─── Маркеры HUD ────────────────────────────────────────────────────────────
 
@@ -24,6 +24,10 @@ struct HighScoreText;
 /// Маркер пункта главного меню (хранит индекс пункта)
 #[derive(Component)]
 struct MenuItemText(usize);
+
+/// Маркер пункта экрана Options (хранит индекс пункта)
+#[derive(Component)]
+struct OptionsItemText(usize);
 
 // ─── Маркеры оверлеев ───────────────────────────────────────────────────────
 
@@ -47,6 +51,10 @@ impl Plugin for UiPlugin {
         app.add_systems(OnEnter(GameState::MainMenu), (reset_menu_selection, spawn_main_menu).chain());
         app.add_systems(OnExit(GameState::MainMenu), despawn_overlay);
 
+        // Options
+        app.add_systems(OnEnter(GameState::Options), (reset_options_selection, spawn_options_screen).chain());
+        app.add_systems(OnExit(GameState::Options), despawn_overlay);
+
         // GameOver
         app.add_systems(OnEnter(GameState::GameOver), spawn_game_over);
         app.add_systems(OnExit(GameState::GameOver), despawn_overlay);
@@ -66,6 +74,7 @@ impl Plugin for UiPlugin {
                 update_highscore_ui,
                 update_pause_overlay,
                 update_menu_selection_ui.run_if(in_state(GameState::MainMenu)),
+                update_options_ui.run_if(in_state(GameState::Options)),
             ),
         );
     }
@@ -276,7 +285,7 @@ fn spawn_hint(parent: &mut ChildBuilder, text: &str) {
     ));
 }
 
-const MENU_ITEMS: &[&str] = &["PLAY GAME", "LEVEL EDITOR", "QUIT"];
+const MENU_ITEMS: &[&str] = &["PLAY GAME", "LEVEL EDITOR", "OPTIONS", "QUIT"];
 
 // Главное меню
 fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>) {
@@ -327,6 +336,63 @@ fn update_menu_selection_ui(
         } else {
             Color::srgb(0.55, 0.55, 0.55)
         };
+    }
+}
+
+// ─── Options ────────────────────────────────────────────────────────────────
+
+fn reset_options_selection(mut selection: ResMut<OptionsSelection>) {
+    selection.0 = 0;
+}
+
+fn options_item_text(idx: usize, selected: usize, settings: &AudioSettings) -> (String, Color) {
+    let prefix = if idx == selected { ">  " } else { "   " };
+    let label = match idx {
+        0 => format!("MUSIC VOLUME:   {}%", (settings.music_volume * 100.0).round() as u32),
+        1 => format!("SFX VOLUME:     {}%", (settings.sfx_volume   * 100.0).round() as u32),
+        _ => "BACK".to_string(),
+    };
+    let color = if idx == selected { Color::WHITE } else { Color::srgb(0.55, 0.55, 0.55) };
+    (format!("{}{}", prefix, label), color)
+}
+
+fn spawn_options_screen(
+    mut commands: Commands,
+    selection: Res<OptionsSelection>,
+    settings: Res<AudioSettings>,
+) {
+    let root = spawn_overlay_root(&mut commands);
+    commands.entity(root).with_children(|parent| {
+        spawn_panel(parent, |panel| {
+            spawn_title(panel, "OPTIONS", Color::srgb(0.3, 0.8, 1.0));
+
+            for idx in 0..3usize {
+                let (text, color) = options_item_text(idx, selection.0, &settings);
+                panel.spawn((
+                    Text::new(text),
+                    TextFont { font_size: 26.0, ..default() },
+                    TextColor(color),
+                    OptionsItemText(idx),
+                ));
+            }
+
+            spawn_hint(panel, "[ W/S  Navigate ]  [ LEFT/RIGHT  Adjust ]  [ ESC  Back ]");
+        });
+    });
+}
+
+fn update_options_ui(
+    selection: Res<OptionsSelection>,
+    settings: Res<AudioSettings>,
+    mut query: Query<(&mut Text, &mut TextColor, &OptionsItemText)>,
+) {
+    if !selection.is_changed() && !settings.is_changed() {
+        return;
+    }
+    for (mut text, mut color, item) in &mut query {
+        let (t, c) = options_item_text(item.0, selection.0, &settings);
+        **text = t;
+        color.0 = c;
     }
 }
 

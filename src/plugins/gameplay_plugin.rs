@@ -1,11 +1,11 @@
 use bevy::prelude::*;
 
 use crate::resources::game_state::GameState;
-use crate::resources::score::{BallSpeedMultiplier, CurrentLevel, DebugSkipPending, HighScore, Lives, MenuSelection, Paused, Score};
+use crate::resources::score::{AudioSettings, BallSpeedMultiplier, CurrentLevel, DebugSkipPending, HighScore, Lives, MenuSelection, OptionsSelection, Paused, Score};
 use crate::systems::gameplay::{
     check_ball_lost_system, check_win_condition_system, debug_auto_advance_system,
     debug_skip_level_system, handle_game_over_system, handle_level_complete_system,
-    handle_main_menu_system, handle_pause_system, track_highscore_system,
+    handle_main_menu_system, handle_options_system, handle_pause_system, track_highscore_system,
 };
 
 /// Плагин: игровые правила, ресурсы, победа/поражение
@@ -20,6 +20,8 @@ impl Plugin for GameplayPlugin {
         app.init_resource::<DebugSkipPending>();
         app.init_resource::<Paused>();
         app.init_resource::<MenuSelection>();
+        app.init_resource::<OptionsSelection>();
+        app.init_resource::<AudioSettings>();
         app.insert_resource(HighScore::load());
 
         // Главное меню → старт игры
@@ -45,6 +47,12 @@ impl Plugin for GameplayPlugin {
         app.add_systems(
             Update,
             handle_pause_system.run_if(in_state(GameState::Playing)),
+        );
+
+        // Options
+        app.add_systems(
+            Update,
+            handle_options_system.run_if(in_state(GameState::Options)),
         );
 
         // Обработка GameOver и LevelComplete

@@ -42,9 +42,26 @@ impl Default for BallSpeedMultiplier {
     }
 }
 
-/// Ресурс: выбранный пункт главного меню (0=Play, 1=LevelEditor)
+/// Ресурс: выбранный пункт главного меню (0=Play, 1=LevelEditor, 2=Options, 3=Quit)
 #[derive(Resource, Default)]
 pub struct MenuSelection(pub usize);
+
+/// Ресурс: выбранный пункт в Options (0=Music, 1=SFX, 2=Back)
+#[derive(Resource, Default)]
+pub struct OptionsSelection(pub usize);
+
+/// Ресурс: настройки громкости
+#[derive(Resource)]
+pub struct AudioSettings {
+    pub music_volume: f32, // 0.0 – 1.0
+    pub sfx_volume: f32,
+}
+
+impl Default for AudioSettings {
+    fn default() -> Self {
+        Self { music_volume: 0.7, sfx_volume: 0.8 }
+    }
+}
 
 /// Ресурс: рекорд — сохраняется в файл при обновлении
 #[derive(Resource, Debug, Default)]
