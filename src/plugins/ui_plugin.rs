@@ -332,7 +332,6 @@ fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>) {
     commands.entity(root).with_children(|parent| {
         spawn_panel(parent, |panel| {
             spawn_title(panel, "ARKANOID", Color::srgb(0.3, 0.7, 1.0));
-            spawn_subtitle(panel, "Rust  +  Bevy  Edition");
             if best > 0 {
                 spawn_subtitle(panel, &format!("Best Score: {}", best));
             }
