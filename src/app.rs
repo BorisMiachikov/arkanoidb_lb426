@@ -17,7 +17,7 @@ pub fn build_app() -> App {
             primary_window: Some(Window {
                 title: "Arkanoid — Rust + Bevy 0.15".to_string(),
                 resolution: WindowResolution::new(800.0, 600.0),
-                resizable: false,
+                resizable: true,
                 ..default()
             }),
             ..default()
