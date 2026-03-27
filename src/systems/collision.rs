@@ -246,13 +246,14 @@ pub fn ball_paddle_collision_system(
 }
 
 fn random_bonus_type(rng: &mut impl Rng) -> BonusType {
-    match rng.gen_range(0..6) {
+    match rng.gen_range(0..7) {
         0 => BonusType::PaddleGrow,
         1 => BonusType::StickyPaddle,
         2 => BonusType::BallGrow,
         3 => BonusType::GunPaddle,
         4 => BonusType::FireBall,
-        _ => BonusType::MultiBall,
+        5 => BonusType::MultiBall,
+        _ => BonusType::ExtraLife,
     }
 }
 
@@ -264,5 +265,6 @@ fn bonus_color(bonus_type: BonusType) -> Color {
         BonusType::GunPaddle    => Color::srgb(0.9, 0.4, 0.1), // оранжевый
         BonusType::FireBall     => Color::srgb(1.0, 0.3, 0.0), // красно-оранжевый
         BonusType::MultiBall    => Color::srgb(0.8, 0.3, 1.0), // фиолетовый
+        BonusType::ExtraLife    => Color::srgb(1.0, 0.3, 0.5), // розовый
     }
 }

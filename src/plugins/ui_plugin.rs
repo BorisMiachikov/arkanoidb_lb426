@@ -10,10 +10,15 @@ use crate::resources::score::{AudioSettings, CurrentLevel, HighScore, Lives, Men
 struct ScoreText;
 
 #[derive(Component)]
-struct LivesText;
-
-#[derive(Component)]
 struct LevelText;
+
+/// Маркер контейнера иконок жизней
+#[derive(Component)]
+struct LivesContainer;
+
+/// Маркер одной иконки жизни
+#[derive(Component)]
+struct LivesIcon;
 
 #[derive(Component)]
 struct ActiveBonusText;
@@ -68,7 +73,7 @@ impl Plugin for UiPlugin {
             Update,
             (
                 update_score_ui,
-                update_lives_ui,
+                update_lives_icons,
                 update_level_ui,
                 update_bonus_ui,
                 update_highscore_ui,
@@ -120,11 +125,18 @@ fn setup_hud(mut commands: Commands) {
                     HighScoreText,
                 ));
                 row.spawn((
-                    Text::new("LIVES: 3"),
-                    TextFont { font_size: 18.0, ..default() },
-                    TextColor(Color::srgb(1.0, 0.4, 0.4)),
-                    LivesText,
-                ));
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        column_gap: Val::Px(4.0),
+                        ..default()
+                    },
+                    LivesContainer,
+                )).with_children(|lives_row| {
+                    spawn_life_icon(lives_row);
+                    spawn_life_icon(lives_row);
+                    spawn_life_icon(lives_row);
+                });
             });
 
             // Строка активных бонусов
@@ -166,12 +178,38 @@ fn update_highscore_ui(
     }
 }
 
-fn update_lives_ui(lives: Res<Lives>, mut query: Query<&mut Text, With<LivesText>>) {
-    if lives.is_changed() {
-        if let Ok(mut text) = query.get_single_mut() {
-            **text = format!("LIVES: {}", lives.count);
-        }
+fn spawn_life_icon(parent: &mut ChildBuilder) {
+    parent.spawn((
+        LivesIcon,
+        Node {
+            width: Val::Px(28.0),
+            height: Val::Px(8.0),
+            ..default()
+        },
+        BackgroundColor(Color::srgb(0.3, 0.6, 1.0)),
+        BorderRadius::all(Val::Px(2.0)),
+    ));
+}
+
+fn update_lives_icons(
+    mut commands: Commands,
+    lives: Res<Lives>,
+    container_query: Query<Entity, With<LivesContainer>>,
+) {
+    if !lives.is_changed() {
+        return;
     }
+    let Ok(container) = container_query.get_single() else {
+        return;
+    };
+    let count = lives.count;
+    commands.entity(container)
+        .despawn_descendants()
+        .with_children(|parent| {
+            for _ in 0..count {
+                spawn_life_icon(parent);
+            }
+        });
 }
 
 fn update_level_ui(

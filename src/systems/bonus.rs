@@ -10,7 +10,10 @@ use crate::components::level_entity::LevelEntity;
 use crate::components::paddle::Paddle;
 use crate::components::velocity::Velocity;
 use crate::events::SoundEvent;
+use crate::resources::score::Lives;
 use crate::setup::level::{BALL_SIZE, PADDLE_WIDTH};
+
+const MAX_LIVES: u32 = 9;
 
 const EFFECT_DURATION_SECS: f32 = 10.0;
 const FIREBALL_DURATION_SECS: f32 = 8.0;
@@ -41,6 +44,7 @@ pub fn bonus_pickup_system(
     bonus_query: Query<(Entity, &Transform, &Collider, &Bonus)>,
     paddle_query: Query<(Entity, &Transform, &Collider), With<Paddle>>,
     ball_query: Query<(Entity, &Transform, &Velocity, &Collider, Option<&BallStuck>), With<Ball>>,
+    mut lives: ResMut<Lives>,
     mut sound_events: EventWriter<SoundEvent>,
 ) {
     let Ok((paddle_entity, paddle_tf, paddle_col)) = paddle_query.get_single() else {
@@ -89,6 +93,9 @@ pub fn bonus_pickup_system(
                             timer: Timer::from_seconds(FIREBALL_DURATION_SECS, TimerMode::Once),
                         });
                     }
+                }
+                crate::components::bonus::BonusType::ExtraLife => {
+                    lives.count = (lives.count + 1).min(MAX_LIVES);
                 }
                 crate::components::bonus::BonusType::MultiBall => {
                     // Спавним 2 дополнительных мяча для каждого незастрявшего

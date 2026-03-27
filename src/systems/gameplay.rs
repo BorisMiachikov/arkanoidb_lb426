@@ -136,7 +136,7 @@ pub fn track_highscore_system(score: Res<Score>, mut highscore: ResMut<HighScore
     }
 }
 
-/// В состоянии GameOver: Enter/Space → рестарт с первого уровня
+/// В состоянии GameOver: Enter/Space → рестарт с первого уровня, ESC → главное меню
 pub fn handle_game_over_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
@@ -145,12 +145,19 @@ pub fn handle_game_over_system(
     mut current_level: ResMut<CurrentLevel>,
     mut editor: ResMut<EditorData>,
 ) {
-    if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space) {
+    let restart = keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space);
+    let to_menu = keys.just_pressed(KeyCode::Escape);
+
+    if restart || to_menu {
         score.value = 0;
         lives.count = 3;
         current_level.number = 0;
         editor.active = false;
-        next_state.set(GameState::Playing);
+        if to_menu {
+            next_state.set(GameState::MainMenu);
+        } else {
+            next_state.set(GameState::Playing);
+        }
     }
 }
 
