@@ -38,6 +38,10 @@ struct OptionsItemText(usize);
 #[derive(Component)]
 struct EnterNameText;
 
+/// Маркер корневого узла HUD (для управления видимостью)
+#[derive(Component)]
+struct HudRoot;
+
 // ─── Маркеры оверлеев ───────────────────────────────────────────────────────
 
 /// Маркер: любой экран-оверлей (очищается при OnExit состояния)
@@ -84,6 +88,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             Update,
             (
+                update_hud_visibility,
                 update_score_ui,
                 update_lives_icons,
                 update_level_ui,
@@ -100,15 +105,34 @@ impl Plugin for UiPlugin {
 
 // ─── HUD ────────────────────────────────────────────────────────────────────
 
+fn update_hud_visibility(
+    state: Res<State<GameState>>,
+    mut query: Query<&mut Visibility, With<HudRoot>>,
+) {
+    if !state.is_changed() {
+        return;
+    }
+    let visible = matches!(
+        state.get(),
+        GameState::Playing | GameState::LevelComplete | GameState::GameOver
+    );
+    if let Ok(mut vis) = query.get_single_mut() {
+        *vis = if visible { Visibility::Visible } else { Visibility::Hidden };
+    }
+}
+
 fn setup_hud(mut commands: Commands) {
     commands
-        .spawn(Node {
+        .spawn((
+        HudRoot,
+        Visibility::Hidden,
+        Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Stretch,
             ..default()
-        })
+        }))
         .with_children(|root| {
             // Верхняя строка: SCORE | LEVEL | LIVES
             root.spawn(Node {

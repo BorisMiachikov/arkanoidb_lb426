@@ -88,16 +88,22 @@ HUD показывает активные бонусы с оставшимися
 ## 5. Уровни
 
 Данные — статический массив `LEVELS` в `src/resources/level_data.rs`.
-Всего **5 уровней**, сетка `grid: &[&[u8]]` (0=пусто, 1=Normal, 2=Strong).
-Также поддерживается **кастомный уровень** через редактор (`custom_level.lvl`).
+Всего **5 встроенных уровней**, сетка `grid: &[&[u8]]`.
+
+**Кодировка ячеек:**
+- `0` = пусто
+- `1–6` = Normal (цвета: Blue/Green/Yellow/Orange/Purple/Red)
+- `7–12` = Strong (те же 6 цветов)
+
+Пользовательские уровни сохраняются в `levels/level_N.lvl` и при старте уровня имеют **приоритет** над встроенными данными. Новые уровни (6, 7, 8...) создаются в редакторе клавишей `N`.
 
 | Уровень | Паттерн | НЛО | Скорость |
 |---------|---------|-----|---------|
 | 1 | Классический | 0 | ×1.0 |
 | 2 | Шахматный | 1 | ×1.25 |
 | 3 | Пирамида | 2 | ×1.5 |
-| 4 | Крепость | 2 | ×1.75 |
-| 5 | Хаос | 3 | ×2.0 |
+| 4 | Крепость | 3 | ×1.75 |
+| 5 | Финальная стена | 4 | ×2.0 |
 
 ---
 
@@ -141,6 +147,18 @@ HUD показывает активные бонусы с оставшимися
 | ← / → | изменить громкость (только в Options) |
 | ESC | назад в MainMenu (только в Options) |
 
+### HighScores
+| Клавиша | Действие |
+|---------|----------|
+| Enter / ESC | вернуться в MainMenu |
+
+### EnterName
+| Клавиша | Действие |
+|---------|----------|
+| Буквы / цифры | ввод имени (макс. 12 символов) |
+| Backspace | удалить последний символ |
+| Enter | подтвердить имя и сохранить рекорд |
+
 ### GameOver
 | Клавиша | Действие |
 |---------|----------|
@@ -152,11 +170,15 @@ HUD показывает активные бонусы с оставшимися
 |---------|----------|
 | ЛКМ / drag | рисовать кистью |
 | ПКМ / drag | стирать |
-| 0 / 1 / 2 | выбрать кисть |
+| 1–6 | выбрать цвет кисти |
+| T | переключить тип Normal ↔ Strong |
+| 0 | кисть-стёрка |
+| ← / → | предыдущий / следующий уровень |
+| N | создать новый пустой уровень |
 | + / - | добавить/убрать ряд |
-| S | сохранить в `custom_level.lvl` |
-| L | загрузить из `custom_level.lvl` |
-| P | играть кастомный уровень |
+| S | сохранить в `levels/level_N.lvl` |
+| L | загрузить из `levels/level_N.lvl` |
+| P | играть редактируемый уровень |
 | Escape | в главное меню |
 
 ---
@@ -164,18 +186,23 @@ HUD показывает активные бонусы с оставшимися
 ## 8. Состояния игры
 
 ```
-Startup → MainMenu ── Options (ESC → MainMenu)
+Startup → MainMenu ── Options    (ESC → MainMenu)
+               │    ├ HighScores (ESC/Enter → MainMenu)
+               │    ├ EnterName  (Enter → HighScores)
                │    └ LevelEditor (ESC → MainMenu, P → Playing)
                ↓ ENTER (Play Game)
            Playing → LevelComplete → Playing
-                  ↘ GameOver → Playing (Enter)
+                  ↘ GameOver → EnterName (если рекорд) → HighScores → MainMenu
+                            ↘ Playing (Enter, без рекорда)
                             ↘ MainMenu (ESC)
 ```
 
 | Состояние | Описание |
 |-----------|----------|
-| `MainMenu` | Меню: PLAY GAME / LEVEL EDITOR / OPTIONS / QUIT |
+| `MainMenu` | Меню: PLAY GAME / LEVEL EDITOR / HIGH SCORES / OPTIONS / QUIT |
 | `Options` | Настройки громкости музыки и SFX |
+| `HighScores` | Таблица рекордов топ-10 (из `scores.dat`) |
+| `EnterName` | Ввод имени при новом рекорде |
 | `Playing` | Активная игра |
 | `LevelEditor` | Редактор кастомного уровня |
 | `GameOver` | Игра окончена |
@@ -220,9 +247,11 @@ MusicController / MenuMusicController (маркеры музыки)
 ### Ресурсы
 
 ```
-GameState (States enum): MainMenu | Options | Playing | GameOver | LevelComplete | LevelEditor
+GameState (States enum): MainMenu | Options | HighScores | EnterName | Playing | GameOver | LevelComplete | LevelEditor
 Score, Lives, CurrentLevel, BallSpeedMultiplier
 HighScore (сохранение в highscore.dat)
+ScoreTable { entries: Vec<ScoreEntry> }  — топ-10, сохранение в scores.dat
+NameInput { text: String }               — буферный ввод имени в EnterName
 DebugSkipPending, Paused, MenuSelection, OptionsSelection
 AudioSettings { music_volume, sfx_volume }  — управляется в Options
 GameAssets (все Handle<AudioSource> и Handle<Image>)
@@ -250,10 +279,10 @@ src/
 
 ## 10. UI
 
-- **HUD**: SCORE (слева), LEVEL (центр), BEST (центр-право), LIVES — иконки-ракетки (справа)
+- **HUD**: SCORE (слева), LEVEL (центр), BEST (центр-право), LIVES — иконки-ракетки (справа). Виден **только** в состояниях Playing / LevelComplete / GameOver.
 - **Бонусы**: строка под HUD, активные эффекты с оставшимся временем
-- **Экраны**: MainMenu (4 пункта), Options (громкость), GameOver, LevelComplete, Pause
-- **Редактор**: сетка ячеек + UI подсказки (кисть, ряды, команды)
+- **Экраны**: MainMenu (5 пунктов), Options (громкость), HighScores (топ-10), EnterName (ввод имени), GameOver, LevelComplete, Pause
+- **Редактор**: сетка 12 рядов, выбор цвета (1–6) и типа (T), навигация по уровням (←/→), создание нового (N)
 - Весь текст на **ASCII/латинице** — дефолтный шрифт Bevy не поддерживает кириллицу
 - UI-изображения: `ImageNode` (не `Sprite`)
 
@@ -276,7 +305,15 @@ assets/
 
 ---
 
-## 12. Требования к коду
+## 12. Технические детали
+
+- **Камера**: `ScalingMode::AutoMin { min_width: 800.0, min_height: 600.0 }` — виртуальное пространство 800×600, масштабируется под размер окна с letterbox/pillarbox. Окно `resizable: true`.
+- **Release-сборка**: `opt-level="z"`, `lto=true`, `codegen-units=1`, `strip=true` — 54 МБ → 26 МБ.
+- **Физика**: `FixedUpdate` 64 Hz, `dt.min(0.05)` против туннелирования.
+
+---
+
+## 13. Требования к коду
 
 - Чистая ECS-архитектура (Bevy)
 - Компоненты — только данные, без логики

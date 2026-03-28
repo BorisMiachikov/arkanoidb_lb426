@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::resources::editor::{editor_cell_color, EditorData, EDITOR_COLS};
 use crate::resources::game_state::GameState;
+use crate::setup::level::{encode_cell, BRICK_COLOR_NAMES};
 
 // ─── Маркеры ────────────────────────────────────────────────────────────────
 
@@ -17,12 +18,16 @@ pub struct EditorEntity;
 
 // ─── Вспомогательные ────────────────────────────────────────────────────────
 
-fn brush_label(brush: u8) -> &'static str {
-    match brush {
-        1 => "NORMAL (blue)",
-        2 => "STRONG (red)",
-        _ => "ERASE (empty)",
+fn brush_label(brush: u8) -> String {
+    if brush == 0 {
+        return "ERASE".to_string();
     }
+    let (type_name, color_idx) = if brush > 6 {
+        ("STRONG", (brush - 7) as usize)
+    } else {
+        ("NORMAL", (brush - 1) as usize)
+    };
+    format!("{} + {}", type_name, BRICK_COLOR_NAMES[color_idx])
 }
 
 // ─── Setup / Cleanup ────────────────────────────────────────────────────────
@@ -100,10 +105,11 @@ fn spawn_editor_ui(commands: &mut Commands, editor: &EditorData) {
             },
         ))
         .with_children(|root| {
-            // Верхняя строка: заголовок
+            // Верхняя строка: заголовок | текущий уровень | ряды
             root.spawn(Node {
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
                 ..default()
             })
             .with_children(|row| {
@@ -111,6 +117,12 @@ fn spawn_editor_ui(commands: &mut Commands, editor: &EditorData) {
                     Text::new("LEVEL EDITOR"),
                     TextFont { font_size: 24.0, ..default() },
                     TextColor(Color::srgb(0.4, 0.9, 1.0)),
+                ));
+                row.spawn((
+                    Text::new(format!("< {} >  [</> nav]", editor.level_label())),
+                    TextFont { font_size: 18.0, ..default() },
+                    TextColor(Color::srgb(1.0, 0.85, 0.2)),
+                    EditorLevelText,
                 ));
                 row.spawn((
                     Text::new(format!("Rows: {}  (+/-)", editor.rows)),
@@ -124,8 +136,8 @@ fn spawn_editor_ui(commands: &mut Commands, editor: &EditorData) {
             root.spawn(Node { justify_content: JustifyContent::Center, ..default() })
                 .with_children(|row| {
                     row.spawn((
-                        Text::new(format!("Brush [0/1/2]: {}", brush_label(editor.brush))),
-                        TextFont { font_size: 16.0, ..default() },
+                        Text::new(format!("[1-6] Color  [T] Type  [0] Erase  |  {}", brush_label(editor.brush))),
+                        TextFont { font_size: 15.0, ..default() },
                         TextColor(Color::srgb(1.0, 0.9, 0.3)),
                         EditorBrushText,
                     ));
@@ -139,7 +151,7 @@ fn spawn_editor_ui(commands: &mut Commands, editor: &EditorData) {
             })
             .with_children(|row| {
                 row.spawn((
-                    Text::new("[S] Save   [L] Load   [P] Play"),
+                    Text::new("[N] New   [S] Save   [L] Load   [P] Play"),
                     TextFont { font_size: 14.0, ..default() },
                     TextColor(Color::srgb(0.5, 1.0, 0.5)),
                 ));
@@ -159,6 +171,9 @@ pub(crate) struct EditorBrushText;
 
 #[derive(Component)]
 pub(crate) struct EditorRowsText;
+
+#[derive(Component)]
+pub(crate) struct EditorLevelText;
 
 // ─── Ввод мышью ─────────────────────────────────────────────────────────────
 
@@ -216,23 +231,69 @@ pub fn editor_keyboard_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
     mut editor: ResMut<EditorData>,
-    mut brush_text: Query<&mut Text, (With<EditorBrushText>, Without<EditorRowsText>)>,
-    mut rows_text: Query<&mut Text, (With<EditorRowsText>, Without<EditorBrushText>)>,
+    mut brush_text: Query<
+        &mut Text,
+        (With<EditorBrushText>, Without<EditorRowsText>, Without<EditorLevelText>),
+    >,
+    mut rows_text: Query<
+        &mut Text,
+        (With<EditorRowsText>, Without<EditorBrushText>, Without<EditorLevelText>),
+    >,
+    mut level_text: Query<
+        &mut Text,
+        (With<EditorLevelText>, Without<EditorBrushText>, Without<EditorRowsText>),
+    >,
 ) {
-    // Кисть: клавиши 0, 1, 2
-    let new_brush = if keys.just_pressed(KeyCode::Digit0) {
-        Some(0u8)
-    } else if keys.just_pressed(KeyCode::Digit1) {
-        Some(1u8)
-    } else if keys.just_pressed(KeyCode::Digit2) {
-        Some(2u8)
-    } else {
-        None
-    };
-    if let Some(b) = new_brush {
-        editor.brush = b;
+    // Навигация по уровням: стрелки влево / вправо
+    let prev = keys.just_pressed(KeyCode::ArrowLeft);
+    let next = keys.just_pressed(KeyCode::ArrowRight);
+    if prev || next {
+        editor.switch_level(if next { 1 } else { -1 });
+        // Обновим текст уровня сразу (ячейки перерисует redraw_system)
+        if let Ok(mut t) = level_text.get_single_mut() {
+            **t = format!("< {} >  [</> nav]", editor.level_label());
+        }
+        if let Ok(mut t) = rows_text.get_single_mut() {
+            **t = format!("Rows: {}  (+/-)", editor.rows);
+        }
+        return; // не обрабатывать остальные клавиши в том же кадре
+    }
+
+    // 0 — стёрка
+    if keys.just_pressed(KeyCode::Digit0) {
+        editor.brush = 0;
         if let Ok(mut t) = brush_text.get_single_mut() {
-            **t = format!("Brush [0/1/2]: {}", brush_label(b));
+            **t = format!("[1-6] Color  [T] Type  [0] Erase  |  {}", brush_label(0));
+        }
+    }
+
+    // 1–6 — выбор цвета (тип сохраняется)
+    let color_keys = [
+        (KeyCode::Digit1, 0usize),
+        (KeyCode::Digit2, 1),
+        (KeyCode::Digit3, 2),
+        (KeyCode::Digit4, 3),
+        (KeyCode::Digit5, 4),
+        (KeyCode::Digit6, 5),
+    ];
+    for (key, ci) in color_keys {
+        if keys.just_pressed(key) {
+            let is_strong = editor.brush > 6;
+            editor.brush = encode_cell(if is_strong { 2 } else { 1 }, ci);
+            if let Ok(mut t) = brush_text.get_single_mut() {
+                **t = format!("[1-6] Color  [T] Type  [0] Erase  |  {}", brush_label(editor.brush));
+            }
+            break;
+        }
+    }
+
+    // T — переключить тип Normal ↔ Strong
+    if keys.just_pressed(KeyCode::KeyT) && editor.brush > 0 {
+        let is_strong = editor.brush > 6;
+        let ci = if is_strong { (editor.brush - 7) as usize } else { (editor.brush - 1) as usize };
+        editor.brush = encode_cell(if is_strong { 1 } else { 2 }, ci);
+        if let Ok(mut t) = brush_text.get_single_mut() {
+            **t = format!("[1-6] Color  [T] Type  [0] Erase  |  {}", brush_label(editor.brush));
         }
     }
 
@@ -245,6 +306,17 @@ pub fn editor_keyboard_system(
         editor.remove_row();
     }
     if add || sub {
+        if let Ok(mut t) = rows_text.get_single_mut() {
+            **t = format!("Rows: {}  (+/-)", editor.rows);
+        }
+    }
+
+    // N — создать новый уровень после последнего
+    if keys.just_pressed(KeyCode::KeyN) {
+        editor.new_level();
+        if let Ok(mut t) = level_text.get_single_mut() {
+            **t = format!("< {} >  [</> nav]", editor.level_label());
+        }
         if let Ok(mut t) = rows_text.get_single_mut() {
             **t = format!("Rows: {}  (+/-)", editor.rows);
         }
@@ -275,15 +347,25 @@ pub fn editor_keyboard_system(
 
 // ─── Перерисовка при изменении рядов / загрузке ─────────────────────────────
 
-/// Пересоздаёт ячейки, если was выставлен needs_redraw
+/// Пересоздаёт ячейки, если был выставлен needs_redraw
 pub fn editor_redraw_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut editor: ResMut<EditorData>,
     cells_query: Query<Entity, With<EditorCell>>,
-    mut rows_text: Query<&mut Text, With<EditorRowsText>>,
-    mut brush_text: Query<&mut Text, (With<EditorBrushText>, Without<EditorRowsText>)>,
+    mut rows_text: Query<
+        &mut Text,
+        (With<EditorRowsText>, Without<EditorBrushText>, Without<EditorLevelText>),
+    >,
+    mut brush_text: Query<
+        &mut Text,
+        (With<EditorBrushText>, Without<EditorRowsText>, Without<EditorLevelText>),
+    >,
+    mut level_text: Query<
+        &mut Text,
+        (With<EditorLevelText>, Without<EditorBrushText>, Without<EditorRowsText>),
+    >,
 ) {
     if !editor.needs_redraw {
         return;
@@ -304,6 +386,9 @@ pub fn editor_redraw_system(
         **t = format!("Rows: {}  (+/-)", editor.rows);
     }
     if let Ok(mut t) = brush_text.get_single_mut() {
-        **t = format!("Brush [0/1/2]: {}", brush_label(editor.brush));
+        **t = format!("[1-6] Color  [T] Type  [0] Erase  |  {}", brush_label(editor.brush));
+    }
+    if let Ok(mut t) = level_text.get_single_mut() {
+        **t = format!("< {} >  [</> nav]", editor.level_label());
     }
 }

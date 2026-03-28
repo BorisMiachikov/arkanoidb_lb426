@@ -35,6 +35,38 @@ pub const BRICK_HEIGHT: f32 = 24.0;
 pub const BRICK_GAP: f32 = 4.0;
 pub const BRICKS_TOP_Y: f32 = 170.0;
 
+/// 6 цветов блоков (индексы 0–5)
+pub const BRICK_COLORS: [Color; 6] = [
+    Color::srgb(0.2, 0.7, 0.9),   // 0: Blue
+    Color::srgb(0.2, 0.8, 0.2),   // 1: Green
+    Color::srgb(0.9, 0.85, 0.1),  // 2: Yellow
+    Color::srgb(0.9, 0.5, 0.1),   // 3: Orange
+    Color::srgb(0.7, 0.3, 0.9),   // 4: Purple
+    Color::srgb(0.9, 0.2, 0.2),   // 5: Red
+];
+
+pub const BRICK_COLOR_NAMES: [&str; 6] =
+    ["Blue", "Green", "Yellow", "Orange", "Purple", "Red"];
+
+/// Декодировать значение ячейки → (brick_type: u8, color_idx: usize).
+/// brick_type: 1=Normal, 2=Strong. Возвращает None для пустой ячейки (0).
+pub fn decode_cell(cell: u8) -> Option<(u8, usize)> {
+    match cell {
+        0 => None,
+        1..=6  => Some((1, (cell - 1) as usize)),
+        7..=12 => Some((2, (cell - 7) as usize)),
+        _      => Some((1, 0)),
+    }
+}
+
+/// Закодировать тип и цвет в значение ячейки
+pub fn encode_cell(brick_type: u8, color_idx: usize) -> u8 {
+    match brick_type {
+        2 => 7 + color_idx as u8,
+        _ => 1 + color_idx as u8,
+    }
+}
+
 /// Создаём сущности уровня.
 /// Если EditorData.active — используем кастомную сетку из редактора.
 /// Иначе — берём из LEVELS[CurrentLevel].
@@ -57,10 +89,20 @@ pub fn spawn_level_entities(
         let grid_refs: Vec<&[u8]> = editor_data.grid.iter().map(|r| r.as_slice()).collect();
         spawn_bricks(&mut commands, &game_assets, &grid_refs);
     } else {
+        let level_num = current_level.number as usize + 1; // 1-based
         let level_idx = (current_level.number as usize).min(LEVELS.len() - 1);
         let config = &LEVELS[level_idx];
         speed_multiplier.0 = config.ball_speed_multiplier;
-        spawn_bricks(&mut commands, &game_assets, config.grid);
+
+        // Проверяем файл levels/level_N.lvl — он имеет приоритет над статическими данными
+        let file_path = format!("levels/level_{}.lvl", level_num);
+        let file_grid = load_grid_from_file(&file_path);
+        if let Some(grid) = &file_grid {
+            let grid_refs: Vec<&[u8]> = grid.iter().map(|r| r.as_slice()).collect();
+            spawn_bricks(&mut commands, &game_assets, &grid_refs);
+        } else {
+            spawn_bricks(&mut commands, &game_assets, config.grid);
+        }
         spawn_ufos(&mut commands, &mut meshes, &mut materials, config);
     }
 }
@@ -162,16 +204,6 @@ fn spawn_bricks(
     game_assets: &Res<GameAssets>,
     grid: &[&[u8]],
 ) {
-    // Цвета рядов для обычных блоков (тип 1) — используются как тинт спрайта
-    let row_colors = [
-        Color::srgb(0.2, 0.7, 0.9), // голубой
-        Color::srgb(0.2, 0.8, 0.2), // зелёный
-        Color::srgb(0.9, 0.85, 0.1), // жёлтый
-        Color::srgb(0.9, 0.5, 0.1), // оранжевый
-        Color::srgb(0.7, 0.3, 0.9), // фиолетовый
-        Color::srgb(0.2, 0.7, 0.9), // повтор
-    ];
-
     let cols = grid.iter().map(|r| r.len()).max().unwrap_or(0);
     let total_w = cols as f32 * BRICK_WIDTH + (cols.saturating_sub(1)) as f32 * BRICK_GAP;
     let start_x = -total_w / 2.0 + BRICK_WIDTH / 2.0;
@@ -182,25 +214,12 @@ fn spawn_bricks(
         let y = BRICKS_TOP_Y - row as f32 * step_y;
 
         for (col, &cell) in row_data.iter().enumerate() {
-            if cell == 0 {
-                continue;
-            }
+            let Some((btype, color_idx)) = decode_cell(cell) else { continue };
             let x = start_x + col as f32 * step_x;
-            let (brick_type, health, score_value, image, color) = match cell {
-                2 => (
-                    BrickType::Strong,
-                    2u32,
-                    200u32,
-                    game_assets.sprite_brick_strong.clone(),
-                    Color::WHITE,
-                ),
-                _ => (
-                    BrickType::Normal,
-                    1,
-                    100,
-                    game_assets.sprite_brick_normal.clone(),
-                    row_colors[row % row_colors.len()],
-                ),
+            let color = BRICK_COLORS[color_idx];
+            let (brick_type, health, score_value, image) = match btype {
+                2 => (BrickType::Strong, 2u32, 200u32, game_assets.sprite_brick_strong.clone()),
+                _ => (BrickType::Normal, 1u32, 100u32, game_assets.sprite_brick_normal.clone()),
             };
 
             commands.spawn((
@@ -217,4 +236,26 @@ fn spawn_bricks(
             ));
         }
     }
+}
+
+/// Загрузить сетку блоков из файла редактора. Возвращает None если файл не найден или повреждён.
+fn load_grid_from_file(path: &str) -> Option<Vec<Vec<u8>>> {
+    use crate::resources::editor::{EDITOR_COLS, EDITOR_MAX_ROWS, EDITOR_MIN_ROWS};
+    let text = std::fs::read_to_string(path).ok()?;
+    let mut lines = text.lines();
+    let first = lines.next()?;
+    let parts: Vec<usize> = first.split_whitespace().filter_map(|s| s.parse().ok()).collect();
+    if parts.len() < 2 { return None; }
+    let rows = parts[1].clamp(EDITOR_MIN_ROWS, EDITOR_MAX_ROWS);
+    let mut grid: Vec<Vec<u8>> = lines.take(rows).map(|line| {
+        let mut row: Vec<u8> = line.split_whitespace()
+            .filter_map(|s| s.parse().ok())
+            .take(EDITOR_COLS)
+            .collect();
+        row.resize(EDITOR_COLS, 0);
+        row
+    }).collect();
+    if grid.is_empty() { return None; }
+    grid.resize(rows, vec![0u8; EDITOR_COLS]);
+    Some(grid)
 }

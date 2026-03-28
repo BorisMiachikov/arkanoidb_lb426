@@ -1,13 +1,14 @@
 use bevy::prelude::*;
 
-use crate::setup::level::{BRICK_GAP, BRICK_HEIGHT, BRICK_WIDTH, BRICKS_TOP_Y};
+use crate::resources::level_data::LEVELS;
+use crate::setup::level::{
+    decode_cell, BRICK_COLORS, BRICK_GAP, BRICK_HEIGHT, BRICK_WIDTH, BRICKS_TOP_Y,
+};
 
 pub const EDITOR_COLS: usize = 10;
 pub const EDITOR_MIN_ROWS: usize = 1;
-pub const EDITOR_MAX_ROWS: usize = 10;
-pub const EDITOR_FILE: &str = "custom_level.lvl";
+pub const EDITOR_MAX_ROWS: usize = 12;
 
-/// Тип ячейки при наведении/перетаскивании (чтобы не красить одну ячейку дважды)
 #[derive(Resource)]
 pub struct EditorData {
     /// grid[row][col] — 0=пусто, 1=обычный, 2=прочный
@@ -23,16 +24,28 @@ pub struct EditorData {
     pub needs_redraw: bool,
     /// Хэндлы материалов ячеек — cell_materials[row * COLS + col]
     pub cell_materials: Vec<Handle<ColorMaterial>>,
+    /// Текущий редактируемый уровень (1-based)
+    pub current_level: usize,
+    /// Общее количество уровней (встроенные + пользовательские файлы)
+    pub total_levels: usize,
 }
 
 impl Default for EditorData {
     fn default() -> Self {
-        let rows = 5;
+        let total_levels = Self::discover_total_levels();
+        let config = &LEVELS[0];
+        let data_rows = config.grid.len().clamp(EDITOR_MIN_ROWS, EDITOR_MAX_ROWS);
+        let mut grid: Vec<Vec<u8>> =
+            config.grid.iter().take(data_rows).map(|r| r.to_vec()).collect();
+        grid.resize(EDITOR_MAX_ROWS, vec![0u8; EDITOR_COLS]);
+        let rows = EDITOR_MAX_ROWS;
         Self {
-            grid: vec![vec![0u8; EDITOR_COLS]; rows],
+            grid,
             rows,
             brush: 1,
             active: false,
+            current_level: 1,
+            total_levels,
             last_painted: None,
             needs_redraw: false,
             cell_materials: Vec::new(),
@@ -41,6 +54,49 @@ impl Default for EditorData {
 }
 
 impl EditorData {
+    /// Подсчёт уровней: встроенные + файлы level_N.lvl, идущие подряд без пропусков
+    fn discover_total_levels() -> usize {
+        let mut total = LEVELS.len();
+        loop {
+            let next = total + 1;
+            if std::path::Path::new(&format!("levels/level_{}.lvl", next)).exists() {
+                total = next;
+            } else {
+                break;
+            }
+        }
+        total
+    }
+
+    /// Путь к файлу для уровня N
+    fn level_file(level: usize) -> String {
+        format!("levels/level_{}.lvl", level)
+    }
+
+    /// Метка текущего уровня для UI
+    pub fn level_label(&self) -> String {
+        format!("LEVEL {} / {}", self.current_level, self.total_levels)
+    }
+
+    /// Переключить уровень на delta (+1 вперёд, -1 назад), с clamp по границам
+    pub fn switch_level(&mut self, delta: i32) {
+        let new = (self.current_level as i32 + delta)
+            .clamp(1, self.total_levels as i32) as usize;
+        if new != self.current_level {
+            self.current_level = new;
+            self.load();
+        }
+    }
+
+    /// Создать новый пустой уровень за последним
+    pub fn new_level(&mut self) {
+        self.total_levels += 1;
+        self.current_level = self.total_levels;
+        self.rows = EDITOR_MAX_ROWS;
+        self.grid = vec![vec![0u8; EDITOR_COLS]; self.rows];
+        self.needs_redraw = true;
+    }
+
     /// Позиция центра ячейки в мировых координатах
     pub fn cell_world_pos(row: usize, col: usize) -> Vec2 {
         let total_w =
@@ -72,7 +128,6 @@ impl EditorData {
             return None;
         }
 
-        // Убеждаемся, что курсор внутри ячейки, а не в зазоре
         let center = Self::cell_world_pos(row as usize, col as usize);
         if (world.x - center.x).abs() <= BRICK_WIDTH / 2.0
             && (world.y - center.y).abs() <= BRICK_HEIGHT / 2.0
@@ -83,33 +138,64 @@ impl EditorData {
         }
     }
 
-    /// Сохранить в файл
+    /// Сохранить текущий уровень в файл
     pub fn save(&self) {
+        let path = Self::level_file(self.current_level);
         let mut s = format!("{} {}\n", EDITOR_COLS, self.rows);
         for row in &self.grid {
             let line: Vec<String> = row.iter().map(|c| c.to_string()).collect();
             s.push_str(&line.join(" "));
             s.push('\n');
         }
-        let _ = std::fs::write(EDITOR_FILE, s);
+        let _ = std::fs::write(&path, s);
     }
 
-    /// Загрузить из файла (обновляет self.grid и self.rows)
+    /// Загрузить текущий уровень: сначала из файла, затем из встроенных данных
     pub fn load(&mut self) {
-        let Ok(text) = std::fs::read_to_string(EDITOR_FILE) else {
-            return;
-        };
+        let path = Self::level_file(self.current_level);
+        if let Ok(text) = std::fs::read_to_string(&path) {
+            if self.parse_file_str(&text) {
+                return;
+            }
+        }
+        self.load_from_static();
+    }
+
+    /// Загрузить из встроенных данных LEVELS (fallback для уровней 1..=5)
+    fn load_from_static(&mut self) {
+        if self.current_level >= 1 {
+            let idx = self.current_level - 1;
+            if idx < LEVELS.len() {
+                let config = &LEVELS[idx];
+                let data_rows = config.grid.len().clamp(EDITOR_MIN_ROWS, EDITOR_MAX_ROWS);
+                let mut grid: Vec<Vec<u8>> =
+                    config.grid.iter().take(data_rows).map(|r| r.to_vec()).collect();
+                // Дополняем пустыми рядами до EDITOR_MAX_ROWS
+                grid.resize(EDITOR_MAX_ROWS, vec![0u8; EDITOR_COLS]);
+                self.rows = EDITOR_MAX_ROWS;
+                self.grid = grid;
+                self.needs_redraw = true;
+                return;
+            }
+        }
+        // Пользовательские уровни без файла — полностью пустая сетка
+        self.rows = EDITOR_MAX_ROWS;
+        self.grid = vec![vec![0u8; EDITOR_COLS]; self.rows];
+        self.needs_redraw = true;
+    }
+
+    /// Разобрать содержимое файла и обновить grid/rows. Возвращает true при успехе.
+    fn parse_file_str(&mut self, text: &str) -> bool {
         let mut lines = text.lines();
-        let Some(first) = lines.next() else { return };
+        let Some(first) = lines.next() else { return false };
         let parts: Vec<usize> = first
             .split_whitespace()
             .filter_map(|s| s.parse().ok())
             .collect();
         if parts.len() < 2 {
-            return;
+            return false;
         }
         let new_rows = parts[1].clamp(EDITOR_MIN_ROWS, EDITOR_MAX_ROWS);
-
         let mut grid: Vec<Vec<u8>> = lines
             .take(new_rows)
             .map(|line| {
@@ -122,14 +208,16 @@ impl EditorData {
                 row
             })
             .collect();
-
         if grid.is_empty() {
-            return;
+            return false;
         }
         grid.resize(new_rows, vec![0u8; EDITOR_COLS]);
+        // Дополняем до EDITOR_MAX_ROWS пустыми рядами
+        grid.resize(EDITOR_MAX_ROWS, vec![0u8; EDITOR_COLS]);
         self.grid = grid;
-        self.rows = new_rows;
+        self.rows = EDITOR_MAX_ROWS;
         self.needs_redraw = true;
+        true
     }
 
     pub fn add_row(&mut self) {
@@ -149,11 +237,23 @@ impl EditorData {
     }
 }
 
-/// Цвет ячейки по типу
-pub fn editor_cell_color(cell_type: u8) -> Color {
-    match cell_type {
-        1 => Color::srgb(0.2, 0.6, 0.9),
-        2 => Color::srgb(0.9, 0.2, 0.2),
-        _ => Color::srgba(0.15, 0.15, 0.2, 1.0), // пустая ячейка — тёмный фон
+/// Цвет ячейки в редакторе.
+/// Normal — полный цвет, Strong — осветлённый (смесь с белым).
+pub fn editor_cell_color(cell: u8) -> Color {
+    match decode_cell(cell) {
+        None => Color::srgba(0.15, 0.15, 0.2, 1.0), // пустая
+        Some((brick_type, ci)) => {
+            let c = BRICK_COLORS[ci].to_srgba();
+            if brick_type == 2 {
+                // Strong: смешиваем с белым, чтобы визуально отличался
+                Color::srgb(
+                    (c.red   * 0.5 + 0.5_f32).min(1.0),
+                    (c.green * 0.5 + 0.5_f32).min(1.0),
+                    (c.blue  * 0.5 + 0.5_f32).min(1.0),
+                )
+            } else {
+                BRICK_COLORS[ci]
+            }
+        }
     }
 }
