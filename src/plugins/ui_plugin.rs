@@ -30,6 +30,10 @@ struct HighScoreText;
 #[derive(Component)]
 struct MenuItemText(usize);
 
+/// Маркер контейнера пункта меню (для обновления рамки при навигации)
+#[derive(Component)]
+struct MenuItemBox(usize);
+
 /// Маркер пункта экрана Options (хранит индекс пункта)
 #[derive(Component)]
 struct OptionsItemText(usize);
@@ -362,53 +366,199 @@ fn spawn_hint(parent: &mut ChildSpawnerCommands, text: &str) {
 
 const MENU_ITEMS: &[&str] = &["PLAY GAME", "LEVEL EDITOR", "HIGH SCORES", "OPTIONS", "QUIT"];
 
+// Цвета декоративных кирпичей: border и тёмный фон
+const DECO_BORDER: [Color; 6] = [
+    Color::srgb(0.2, 0.75, 1.0),
+    Color::srgb(0.2, 0.85, 0.3),
+    Color::srgb(0.95, 0.85, 0.1),
+    Color::srgb(0.95, 0.52, 0.1),
+    Color::srgb(0.85, 0.2, 0.9),
+    Color::srgb(0.95, 0.2, 0.2),
+];
+const DECO_BG: [Color; 6] = [
+    Color::srgba(0.2, 0.75, 1.0,  0.18),
+    Color::srgba(0.2, 0.85, 0.3,  0.18),
+    Color::srgba(0.95, 0.85, 0.1, 0.18),
+    Color::srgba(0.95, 0.52, 0.1, 0.18),
+    Color::srgba(0.85, 0.2, 0.9,  0.18),
+    Color::srgba(0.95, 0.2, 0.2,  0.18),
+];
+
+// Ряды декоративных кирпичей (индексы 0–5 в DECO_BORDER/BG)
+const LEFT_BRICKS:  &[&[usize]] = &[&[0,2,4], &[1,3,5], &[4,0,2]];
+const RIGHT_BRICKS: &[&[usize]] = &[&[2,5,3], &[1,0,4], &[5,3,1]];
+
+fn spawn_deco_column(
+    parent: &mut ChildSpawnerCommands,
+    groups: &[&[usize]],
+    align: AlignItems,
+) {
+    parent.spawn(Node {
+        flex_direction: FlexDirection::Column,
+        align_items: align,
+        justify_content: JustifyContent::Center,
+        row_gap: Val::Px(10.0),
+        min_width: Val::Px(100.0),
+        height: Val::Percent(100.0),
+        ..default()
+    }).with_children(|col| {
+        for &group in groups {
+            col.spawn(Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(3.0),
+                ..default()
+            }).with_children(|g| {
+                for &ci in group {
+                    g.spawn((
+                        Node {
+                            width: Val::Px(84.0),
+                            height: Val::Px(20.0),
+                            border: UiRect::all(Val::Px(1.5)),
+                            ..default()
+                        },
+                        BorderColor::all(DECO_BORDER[ci]),
+                        BackgroundColor(DECO_BG[ci]),
+                    ));
+                }
+            });
+        }
+    });
+}
+
 // Главное меню
 fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>) {
     let best = highscore.value;
     let root = spawn_overlay_root(&mut commands);
-    commands.entity(root).with_children(|parent| {
-        spawn_panel(parent, |panel| {
-            spawn_title(panel, "ARKANOID", Color::srgb(0.3, 0.7, 1.0));
-            if best > 0 {
-                spawn_subtitle(panel, &format!("Best Score: {}", best));
-            }
+    commands.entity(root).with_children(|screen| {
+        // Горизонтальная строка: [левые кирпичи | центр | правые кирпичи]
+        screen.spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        }).with_children(|row| {
+            // Левые декоративные кирпичи
+            spawn_deco_column(row, LEFT_BRICKS, AlignItems::FlexEnd);
 
-            // Пункты меню
-            for (idx, &label) in MENU_ITEMS.iter().enumerate() {
-                let prefix = if idx == 0 { ">  " } else { "   " };
-                panel.spawn((
-                    Text::new(format!("{}{}", prefix, label)),
-                    TextFont { font_size: 26.0, ..default() },
-                    TextColor(if idx == 0 {
-                        Color::WHITE
-                    } else {
-                        Color::srgb(0.55, 0.55, 0.55)
-                    }),
-                    MenuItemText(idx),
+            // Центральная колонка
+            row.spawn(Node {
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                row_gap: Val::Px(10.0),
+                padding: UiRect::horizontal(Val::Px(32.0)),
+                min_width: Val::Px(340.0),
+                ..default()
+            }).with_children(|center| {
+                // Заголовок
+                center.spawn((
+                    Text::new("ARKANOID"),
+                    TextFont { font_size: 62.0, ..default() },
+                    TextColor(Color::srgb(0.15, 0.9, 1.0)),
                 ));
-            }
 
-            spawn_hint(panel, "[ W/S or UP/DN  Select ]  [ ENTER  Confirm ]");
+                // Рекорд
+                let best_text = if best > 0 {
+                    format!("Best Score: {}", best)
+                } else {
+                    "Best Score: ---".to_string()
+                };
+                center.spawn((
+                    Text::new(best_text),
+                    TextFont { font_size: 17.0, ..default() },
+                    TextColor(Color::srgb(0.35, 0.85, 1.0)),
+                ));
+
+                // Разделитель
+                center.spawn(Node { height: Val::Px(8.0), ..default() });
+
+                // Пункты меню
+                for (idx, &label) in MENU_ITEMS.iter().enumerate() {
+                    let selected = idx == 0;
+                    center.spawn((
+                        MenuItemBox(idx),
+                        Node {
+                            width: Val::Px(300.0),
+                            padding: UiRect::axes(Val::Px(18.0), Val::Px(9.0)),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            border: if selected {
+                                UiRect::all(Val::Px(2.0))
+                            } else {
+                                UiRect::ZERO
+                            },
+                            ..default()
+                        },
+                        BorderColor::all(if selected {
+                            Color::srgb(0.75, 0.25, 1.0)
+                        } else {
+                            Color::srgba(0.0, 0.0, 0.0, 0.0)
+                        }),
+                        BackgroundColor(if selected {
+                            Color::srgba(0.45, 0.1, 0.65, 0.28)
+                        } else {
+                            Color::srgba(0.0, 0.0, 0.0, 0.0)
+                        }),
+                    )).with_children(|item| {
+                        let prefix = if selected { "> " } else { "  " };
+                        item.spawn((
+                            Text::new(format!("{}{}", prefix, label)),
+                            TextFont { font_size: 24.0, ..default() },
+                            TextColor(if selected {
+                                Color::WHITE
+                            } else {
+                                Color::srgb(0.52, 0.52, 0.52)
+                            }),
+                            MenuItemText(idx),
+                        ));
+                    });
+                }
+
+                // Разделитель
+                center.spawn(Node { height: Val::Px(8.0), ..default() });
+
+                // Подсказка
+                center.spawn((
+                    Text::new("[ W/S or UP/DN: Select ]  [ ENTER: Confirm ]"),
+                    TextFont { font_size: 13.0, ..default() },
+                    TextColor(Color::srgb(0.3, 0.72, 0.9)),
+                ));
+            });
+
+            // Правые декоративные кирпичи
+            spawn_deco_column(row, RIGHT_BRICKS, AlignItems::FlexStart);
         });
     });
 }
 
 fn update_menu_selection_ui(
     selection: Res<MenuSelection>,
-    mut query: Query<(&mut Text, &mut TextColor, &MenuItemText)>,
+    mut text_q: Query<(&mut Text, &mut TextColor, &MenuItemText)>,
+    mut box_q: Query<(&mut Node, &mut BorderColor, &mut BackgroundColor, &MenuItemBox)>,
 ) {
     if !selection.is_changed() {
         return;
     }
-    for (mut text, mut color, item) in &mut query {
+    for (mut text, mut color, item) in &mut text_q {
         let selected = item.0 == selection.0;
-        let prefix = if selected { ">  " } else { "   " };
-        let label = MENU_ITEMS[item.0];
-        **text = format!("{}{}", prefix, label);
-        color.0 = if selected {
-            Color::WHITE
+        let prefix = if selected { "> " } else { "  " };
+        **text = format!("{}{}", prefix, MENU_ITEMS[item.0]);
+        color.0 = if selected { Color::WHITE } else { Color::srgb(0.52, 0.52, 0.52) };
+    }
+    for (mut node, mut border, mut bg, item) in &mut box_q {
+        let selected = item.0 == selection.0;
+        node.border = if selected { UiRect::all(Val::Px(2.0)) } else { UiRect::ZERO };
+        border.set_all(if selected {
+            Color::srgb(0.75, 0.25, 1.0)
         } else {
-            Color::srgb(0.55, 0.55, 0.55)
+            Color::srgba(0.0, 0.0, 0.0, 0.0)
+        });
+        bg.0 = if selected {
+            Color::srgba(0.45, 0.1, 0.65, 0.28)
+        } else {
+            Color::srgba(0.0, 0.0, 0.0, 0.0)
         };
     }
 }
