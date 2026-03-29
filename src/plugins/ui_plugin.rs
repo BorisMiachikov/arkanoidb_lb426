@@ -116,7 +116,7 @@ fn update_hud_visibility(
         state.get(),
         GameState::Playing | GameState::LevelComplete | GameState::GameOver
     );
-    if let Ok(mut vis) = query.get_single_mut() {
+    if let Ok(mut vis) = query.single_mut() {
         *vis = if visible { Visibility::Visible } else { Visibility::Hidden };
     }
 }
@@ -198,7 +198,7 @@ fn setup_hud(mut commands: Commands) {
 
 fn update_score_ui(score: Res<Score>, mut query: Query<&mut Text, With<ScoreText>>) {
     if score.is_changed() {
-        if let Ok(mut text) = query.get_single_mut() {
+        if let Ok(mut text) = query.single_mut() {
             **text = format!("SCORE: {}", score.value);
         }
     }
@@ -209,22 +209,22 @@ fn update_highscore_ui(
     mut query: Query<&mut Text, With<HighScoreText>>,
 ) {
     if highscore.is_changed() {
-        if let Ok(mut text) = query.get_single_mut() {
+        if let Ok(mut text) = query.single_mut() {
             **text = format!("BEST: {}", highscore.value);
         }
     }
 }
 
-fn spawn_life_icon(parent: &mut ChildBuilder) {
+fn spawn_life_icon(parent: &mut ChildSpawnerCommands) {
     parent.spawn((
         LivesIcon,
         Node {
             width: Val::Px(28.0),
             height: Val::Px(8.0),
+            border_radius: BorderRadius::all(Val::Px(2.0)),
             ..default()
         },
         BackgroundColor(Color::srgb(0.3, 0.6, 1.0)),
-        BorderRadius::all(Val::Px(2.0)),
     ));
 }
 
@@ -236,12 +236,12 @@ fn update_lives_icons(
     if !lives.is_changed() {
         return;
     }
-    let Ok(container) = container_query.get_single() else {
+    let Ok(container) = container_query.single() else {
         return;
     };
     let count = lives.count;
     commands.entity(container)
-        .despawn_descendants()
+        .despawn_children()
         .with_children(|parent| {
             for _ in 0..count {
                 spawn_life_icon(parent);
@@ -254,7 +254,7 @@ fn update_level_ui(
     mut query: Query<&mut Text, With<LevelText>>,
 ) {
     if current_level.is_changed() {
-        if let Ok(mut text) = query.get_single_mut() {
+        if let Ok(mut text) = query.single_mut() {
             **text = format!("LEVEL: {}", current_level.number + 1);
         }
     }
@@ -268,24 +268,24 @@ fn update_bonus_ui(
     gun: Query<&GunPaddleEffect>,
     fire: Query<&FireBallEffect>,
 ) {
-    let Ok(mut text) = query.get_single_mut() else {
+    let Ok(mut text) = query.single_mut() else {
         return;
     };
 
     let mut bonuses: Vec<String> = Vec::new();
-    if let Ok(effect) = paddle_grow.get_single() {
+    if let Ok(effect) = paddle_grow.single() {
         bonuses.push(format!("[PADDLE+ {:.1}s]", effect.timer.remaining_secs()));
     }
-    if let Ok(effect) = sticky.get_single() {
+    if let Ok(effect) = sticky.single() {
         bonuses.push(format!("[STICKY {:.1}s]", effect.timer.remaining_secs()));
     }
-    if let Ok(effect) = ball_grow.get_single() {
+    if let Ok(effect) = ball_grow.single() {
         bonuses.push(format!("[BALL+ {:.1}s]", effect.timer.remaining_secs()));
     }
-    if let Ok(effect) = gun.get_single() {
+    if let Ok(effect) = gun.single() {
         bonuses.push(format!("[GUN {:.1}s]", effect.timer.remaining_secs()));
     }
-    if let Ok(effect) = fire.get_single() {
+    if let Ok(effect) = fire.single() {
         bonuses.push(format!("[FIRE {:.1}s]", effect.timer.remaining_secs()));
     }
 
@@ -300,7 +300,7 @@ fn reset_menu_selection(mut selection: ResMut<MenuSelection>) {
 
 fn despawn_overlay(mut commands: Commands, query: Query<Entity, With<OverlayScreen>>) {
     for entity in &query {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -320,7 +320,7 @@ fn spawn_overlay_root(commands: &mut Commands) -> Entity {
         .id()
 }
 
-fn spawn_panel(parent: &mut ChildBuilder, children: impl FnOnce(&mut ChildBuilder)) {
+fn spawn_panel(parent: &mut ChildSpawnerCommands, children: impl FnOnce(&mut ChildSpawnerCommands)) {
     parent
         .spawn((
             Node {
@@ -328,15 +328,15 @@ fn spawn_panel(parent: &mut ChildBuilder, children: impl FnOnce(&mut ChildBuilde
                 align_items: AlignItems::Center,
                 padding: UiRect::all(Val::Px(48.0)),
                 row_gap: Val::Px(20.0),
+                border_radius: BorderRadius::all(Val::Px(16.0)),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.08, 0.92)),
-            BorderRadius::all(Val::Px(16.0)),
         ))
         .with_children(children);
 }
 
-fn spawn_title(parent: &mut ChildBuilder, text: &str, color: Color) {
+fn spawn_title(parent: &mut ChildSpawnerCommands, text: &str, color: Color) {
     parent.spawn((
         Text::new(text),
         TextFont { font_size: 52.0, ..default() },
@@ -344,7 +344,7 @@ fn spawn_title(parent: &mut ChildBuilder, text: &str, color: Color) {
     ));
 }
 
-fn spawn_subtitle(parent: &mut ChildBuilder, text: &str) {
+fn spawn_subtitle(parent: &mut ChildSpawnerCommands, text: &str) {
     parent.spawn((
         Text::new(text),
         TextFont { font_size: 22.0, ..default() },
@@ -352,7 +352,7 @@ fn spawn_subtitle(parent: &mut ChildBuilder, text: &str) {
     ));
 }
 
-fn spawn_hint(parent: &mut ChildBuilder, text: &str) {
+fn spawn_hint(parent: &mut ChildSpawnerCommands, text: &str) {
     parent.spawn((
         Text::new(text),
         TextFont { font_size: 16.0, ..default() },
@@ -533,7 +533,7 @@ fn update_enter_name_ui(
     mut query: Query<&mut Text, With<EnterNameText>>,
 ) {
     if !name_input.is_changed() { return; }
-    if let Ok(mut text) = query.get_single_mut() {
+    if let Ok(mut text) = query.single_mut() {
         **text = format!("> {}_", name_input.text);
     }
 }
@@ -620,7 +620,7 @@ fn update_pause_overlay(
             });
     } else {
         for entity in &overlay_query {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }

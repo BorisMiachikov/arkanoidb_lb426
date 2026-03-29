@@ -53,7 +53,7 @@ pub fn cleanup_editor(
     mut editor: ResMut<EditorData>,
 ) {
     for entity in &query {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
     editor.cell_materials.clear();
 }
@@ -192,9 +192,9 @@ pub fn editor_mouse_system(
         return;
     }
 
-    let Ok(window) = windows.get_single() else { return };
+    let Ok(window) = windows.single() else { return };
     let Some(cursor_screen) = window.cursor_position() else { return };
-    let Ok((camera, cam_tf)) = camera.get_single() else { return };
+    let Ok((camera, cam_tf)) = camera.single() else { return };
     let Ok(cursor_world) = camera.viewport_to_world_2d(cam_tf, cursor_screen) else { return };
 
     let Some((row, col)) = EditorData::world_to_cell(cursor_world, editor.rows) else {
@@ -250,10 +250,10 @@ pub fn editor_keyboard_system(
     if prev || next {
         editor.switch_level(if next { 1 } else { -1 });
         // Обновим текст уровня сразу (ячейки перерисует redraw_system)
-        if let Ok(mut t) = level_text.get_single_mut() {
+        if let Ok(mut t) = level_text.single_mut() {
             **t = format!("< {} >  [</> nav]", editor.level_label());
         }
-        if let Ok(mut t) = rows_text.get_single_mut() {
+        if let Ok(mut t) = rows_text.single_mut() {
             **t = format!("Rows: {}  (+/-)", editor.rows);
         }
         return; // не обрабатывать остальные клавиши в том же кадре
@@ -262,7 +262,7 @@ pub fn editor_keyboard_system(
     // 0 — стёрка
     if keys.just_pressed(KeyCode::Digit0) {
         editor.brush = 0;
-        if let Ok(mut t) = brush_text.get_single_mut() {
+        if let Ok(mut t) = brush_text.single_mut() {
             **t = format!("[1-6] Color  [T] Type  [0] Erase  |  {}", brush_label(0));
         }
     }
@@ -280,7 +280,7 @@ pub fn editor_keyboard_system(
         if keys.just_pressed(key) {
             let is_strong = editor.brush > 6;
             editor.brush = encode_cell(if is_strong { 2 } else { 1 }, ci);
-            if let Ok(mut t) = brush_text.get_single_mut() {
+            if let Ok(mut t) = brush_text.single_mut() {
                 **t = format!("[1-6] Color  [T] Type  [0] Erase  |  {}", brush_label(editor.brush));
             }
             break;
@@ -292,7 +292,7 @@ pub fn editor_keyboard_system(
         let is_strong = editor.brush > 6;
         let ci = if is_strong { (editor.brush - 7) as usize } else { (editor.brush - 1) as usize };
         editor.brush = encode_cell(if is_strong { 1 } else { 2 }, ci);
-        if let Ok(mut t) = brush_text.get_single_mut() {
+        if let Ok(mut t) = brush_text.single_mut() {
             **t = format!("[1-6] Color  [T] Type  [0] Erase  |  {}", brush_label(editor.brush));
         }
     }
@@ -306,7 +306,7 @@ pub fn editor_keyboard_system(
         editor.remove_row();
     }
     if add || sub {
-        if let Ok(mut t) = rows_text.get_single_mut() {
+        if let Ok(mut t) = rows_text.single_mut() {
             **t = format!("Rows: {}  (+/-)", editor.rows);
         }
     }
@@ -314,10 +314,10 @@ pub fn editor_keyboard_system(
     // N — создать новый уровень после последнего
     if keys.just_pressed(KeyCode::KeyN) {
         editor.new_level();
-        if let Ok(mut t) = level_text.get_single_mut() {
+        if let Ok(mut t) = level_text.single_mut() {
             **t = format!("< {} >  [</> nav]", editor.level_label());
         }
-        if let Ok(mut t) = rows_text.get_single_mut() {
+        if let Ok(mut t) = rows_text.single_mut() {
             **t = format!("Rows: {}  (+/-)", editor.rows);
         }
     }
@@ -382,13 +382,13 @@ pub fn editor_redraw_system(
     spawn_editor_cells(&mut commands, &mut meshes, &mut materials, &mut editor);
 
     // Обновить UI
-    if let Ok(mut t) = rows_text.get_single_mut() {
+    if let Ok(mut t) = rows_text.single_mut() {
         **t = format!("Rows: {}  (+/-)", editor.rows);
     }
-    if let Ok(mut t) = brush_text.get_single_mut() {
+    if let Ok(mut t) = brush_text.single_mut() {
         **t = format!("[1-6] Color  [T] Type  [0] Erase  |  {}", brush_label(editor.brush));
     }
-    if let Ok(mut t) = level_text.get_single_mut() {
+    if let Ok(mut t) = level_text.single_mut() {
         **t = format!("< {} >  [</> nav]", editor.level_label());
     }
 }

@@ -22,7 +22,7 @@ pub struct AssetPlugin;
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<SoundEvent>();
+        app.add_message::<SoundEvent>();
 
         // Вставляем ресурс немедленно через app.insert_resource() (не deferred),
         // иначе OnEnter(MainMenu) паникует — он срабатывает до flush команд Startup.
@@ -137,14 +137,14 @@ fn music_control_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut enabled: ResMut<MusicEnabled>,
     settings: Res<AudioSettings>,
-    sinks: Query<&AudioSink, Or<(With<MusicController>, With<MenuMusicController>)>>,
+    mut sinks: Query<&mut AudioSink, Or<(With<MusicController>, With<MenuMusicController>)>>,
 ) {
     if keys.just_pressed(KeyCode::F2) {
         enabled.0 = !enabled.0;
     }
 
-    for sink in &sinks {
-        sink.set_volume(settings.music_volume);
+    for mut sink in &mut sinks {
+        sink.set_volume(Volume::Linear(settings.music_volume));
         if enabled.0 && sink.is_paused() {
             sink.play();
         } else if !enabled.0 && !sink.is_paused() {
@@ -157,12 +157,12 @@ fn music_control_system(
 
 fn play_sounds_system(
     mut commands: Commands,
-    mut events: EventReader<SoundEvent>,
+    mut events: MessageReader<SoundEvent>,
     assets: Res<GameAssets>,
     settings: Res<AudioSettings>,
 ) {
     let sfx_settings = PlaybackSettings {
-        volume: Volume::new(settings.sfx_volume),
+        volume: Volume::Linear(settings.sfx_volume),
         ..PlaybackSettings::DESPAWN
     };
     for event in events.read() {

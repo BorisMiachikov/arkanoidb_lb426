@@ -26,7 +26,7 @@ pub fn handle_main_menu_system(
     mut score: ResMut<Score>,
     mut lives: ResMut<Lives>,
     mut current_level: ResMut<CurrentLevel>,
-    mut app_exit: EventWriter<AppExit>,
+    mut app_exit: MessageWriter<AppExit>,
 ) {
     if keys.just_pressed(KeyCode::ArrowUp) || keys.just_pressed(KeyCode::KeyW) {
         if selection.0 > 0 { selection.0 -= 1; }
@@ -47,7 +47,7 @@ pub fn handle_main_menu_system(
             1 => next_state.set(GameState::LevelEditor),
             2 => next_state.set(GameState::HighScores),
             3 => next_state.set(GameState::Options),
-            4 => { app_exit.send(AppExit::Success); }
+            4 => { app_exit.write(AppExit::Success); }
             _ => {}
         }
     }
@@ -77,7 +77,7 @@ pub fn check_ball_lost_system(
     mut ball_query: Query<(Entity, &mut Transform, &mut Velocity), With<Ball>>,
     mut lives: ResMut<Lives>,
     mut next_state: ResMut<NextState<GameState>>,
-    mut sound_events: EventWriter<SoundEvent>,
+    mut sound_events: MessageWriter<SoundEvent>,
 ) {
     // Собираем упавших и считаем всего мячей
     let total = ball_query.iter().count();
@@ -105,10 +105,10 @@ pub fn check_ball_lost_system(
         lives.count = lives.count.saturating_sub(1);
 
         if lives.count == 0 {
-            sound_events.send(SoundEvent::GameOver);
+            sound_events.write(SoundEvent::GameOver);
             next_state.set(GameState::GameOver);
         } else {
-            sound_events.send(SoundEvent::LifeLost);
+            sound_events.write(SoundEvent::LifeLost);
             // Оставляем один мяч прилипшим к ракетке, остальные удаляем
             let mut first = true;
             for (ball_entity, mut transform, mut velocity) in &mut ball_query {
@@ -186,7 +186,7 @@ pub fn handle_game_over_system(
 
 /// Ввод имени игрока при попадании в таблицу рекордов
 pub fn handle_enter_name_system(
-    mut keyboard_events: EventReader<KeyboardInput>,
+    mut keyboard_events: MessageReader<KeyboardInput>,
     mut name_input: ResMut<NameInput>,
     mut next_state: ResMut<NextState<GameState>>,
     mut score_table: ResMut<ScoreTable>,

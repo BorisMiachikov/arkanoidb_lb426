@@ -42,7 +42,7 @@ pub fn ball_stuck_system(
     mut ball_query: Query<(Entity, &mut Transform, &mut Velocity), (With<Ball>, With<BallStuck>)>,
     paddle_query: Query<&Transform, (With<Paddle>, Without<Ball>)>,
 ) {
-    let Ok(paddle_tf) = paddle_query.get_single() else {
+    let Ok(paddle_tf) = paddle_query.single() else {
         return;
     };
 

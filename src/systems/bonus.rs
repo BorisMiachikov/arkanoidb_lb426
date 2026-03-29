@@ -45,9 +45,9 @@ pub fn bonus_pickup_system(
     paddle_query: Query<(Entity, &Transform, &Collider), With<Paddle>>,
     ball_query: Query<(Entity, &Transform, &Velocity, &Collider, Option<&BallStuck>), With<Ball>>,
     mut lives: ResMut<Lives>,
-    mut sound_events: EventWriter<SoundEvent>,
+    mut sound_events: MessageWriter<SoundEvent>,
 ) {
-    let Ok((paddle_entity, paddle_tf, paddle_col)) = paddle_query.get_single() else {
+    let Ok((paddle_entity, paddle_tf, paddle_col)) = paddle_query.single() else {
         return;
     };
     let paddle_pos = paddle_tf.translation.truncate();
@@ -59,7 +59,7 @@ pub fn bonus_pickup_system(
 
         if overlaps(paddle_pos, paddle_half, bonus_pos, bonus_half) {
             commands.entity(bonus_entity).despawn();
-            sound_events.send(SoundEvent::BonusPickup);
+            sound_events.write(SoundEvent::BonusPickup);
 
             match bonus.bonus_type {
                 crate::components::bonus::BonusType::PaddleGrow => {

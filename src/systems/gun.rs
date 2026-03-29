@@ -24,7 +24,7 @@ pub fn fire_gun_system(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut paddle_query: Query<(&Transform, &mut GunPaddleEffect), With<Paddle>>,
-    mut sound_events: EventWriter<SoundEvent>,
+    mut sound_events: MessageWriter<SoundEvent>,
 ) {
     let fire = keys.pressed(KeyCode::ControlRight) || keys.pressed(KeyCode::ControlLeft);
 
@@ -33,7 +33,7 @@ pub fn fire_gun_system(
 
         if fire && effect.fire_rate.just_finished() {
             effect.fire_rate.reset();
-            sound_events.send(SoundEvent::BulletFire);
+            sound_events.write(SoundEvent::BulletFire);
 
             let x = paddle_tf.translation.x;
             let y = paddle_tf.translation.y + 14.0;

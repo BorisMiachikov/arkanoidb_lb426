@@ -16,7 +16,7 @@ pub fn build_app() -> App {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Arkanoid — Rust + Bevy 0.15".to_string(),
-                resolution: WindowResolution::new(800.0, 600.0),
+                resolution: WindowResolution::new(800, 600),
                 resizable: true,
                 ..default()
             }),

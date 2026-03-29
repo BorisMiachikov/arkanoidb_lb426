@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 /// Звуковые события игры — системы отправляют, AssetPlugin воспроизводит
-#[derive(Event, Clone, Copy, PartialEq, Eq)]
+#[derive(Message, Clone, Copy, PartialEq, Eq)]
 pub enum SoundEvent {
     BallHitWall,
     BallHitPaddle,
