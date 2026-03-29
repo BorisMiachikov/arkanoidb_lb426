@@ -30,7 +30,7 @@ pub const MAX_BALL_SPEED: f32 = 750.0;
 
 pub const WALL_THICKNESS: f32 = 16.0;
 
-pub const BRICK_WIDTH: f32 = 72.0;
+pub const BRICK_WIDTH: f32 = 64.0;
 pub const BRICK_HEIGHT: f32 = 24.0;
 pub const BRICK_GAP: f32 = 4.0;
 pub const BRICKS_TOP_Y: f32 = 170.0;

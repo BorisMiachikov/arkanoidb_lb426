@@ -5,7 +5,7 @@ use crate::setup::level::{
     decode_cell, BRICK_COLORS, BRICK_GAP, BRICK_HEIGHT, BRICK_WIDTH, BRICKS_TOP_Y,
 };
 
-pub const EDITOR_COLS: usize = 10;
+pub const EDITOR_COLS: usize = 11;
 pub const EDITOR_MIN_ROWS: usize = 1;
 pub const EDITOR_MAX_ROWS: usize = 12;
 
