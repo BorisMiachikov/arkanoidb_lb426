@@ -99,7 +99,6 @@ fn spawn_editor_ui(commands: &mut Commands, editor: &EditorData) {
                 height: Val::Percent(100.0),
                 position_type: PositionType::Absolute,
                 flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::SpaceBetween,
                 padding: UiRect::all(Val::Px(12.0)),
                 ..default()
             },
@@ -132,7 +131,10 @@ fn spawn_editor_ui(commands: &mut Commands, editor: &EditorData) {
                 ));
             });
 
-            // Строка кисти
+            // Растягивающийся пробел — прижимает нижние строки к низу
+            root.spawn(Node { flex_grow: 1.0, ..default() });
+
+            // Строка кисти — над командами
             root.spawn(Node { justify_content: JustifyContent::Center, ..default() })
                 .with_children(|row| {
                     row.spawn((
