@@ -439,8 +439,6 @@ fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>) {
             justify_content: JustifyContent::Center,
             ..default()
         }).with_children(|row| {
-            // Левые декоративные кирпичи
-            spawn_deco_column(row, LEFT_BRICKS, AlignItems::FlexEnd);
 
             // Центральная колонка
             row.spawn(Node {
@@ -527,8 +525,6 @@ fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>) {
                 ));
             });
 
-            // Правые декоративные кирпичи
-            spawn_deco_column(row, RIGHT_BRICKS, AlignItems::FlexStart);
         });
     });
 }
