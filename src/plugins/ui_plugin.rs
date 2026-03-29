@@ -40,6 +40,21 @@ struct MenuItemBox(usize);
 #[derive(Component)]
 struct OptionsItemText(usize);
 
+/// Маркер строки на экране Options (для ховера/выделения)
+#[derive(Component)]
+struct OptionsRow(usize);
+
+/// Маркер текста значения громкости (обновляется при изменении)
+#[derive(Component)]
+struct OptionsVolText(usize);
+
+/// Маркер кнопки +/- громкости
+#[derive(Component)]
+struct OptionsVolBtn {
+    vol_idx: usize,
+    delta: i32,
+}
+
 /// Маркер строки ввода имени на экране EnterName
 #[derive(Component)]
 struct EnterNameText;
@@ -104,6 +119,7 @@ impl Plugin for UiPlugin {
                 update_menu_selection_ui.run_if(in_state(GameState::MainMenu)),
                 menu_mouse_system.run_if(in_state(GameState::MainMenu)),
                 update_options_ui.run_if(in_state(GameState::Options)),
+                options_mouse_system.run_if(in_state(GameState::Options)),
                 update_enter_name_ui.run_if(in_state(GameState::EnterName)),
             ),
         );
@@ -596,15 +612,28 @@ fn reset_options_selection(mut selection: ResMut<OptionsSelection>) {
     selection.0 = 0;
 }
 
-fn options_item_text(idx: usize, selected: usize, settings: &AudioSettings) -> (String, Color) {
-    let prefix = if idx == selected { ">  " } else { "   " };
-    let label = match idx {
-        0 => format!("MUSIC VOLUME:   {}%", (settings.music_volume * 100.0).round() as u32),
-        1 => format!("SFX VOLUME:     {}%", (settings.sfx_volume   * 100.0).round() as u32),
-        _ => "BACK".to_string(),
-    };
-    let color = if idx == selected { Color::WHITE } else { Color::srgb(0.55, 0.55, 0.55) };
-    (format!("{}{}", prefix, label), color)
+fn vol_pct(v: f32) -> u32 { (v * 100.0).round() as u32 }
+
+fn spawn_vol_btn(parent: &mut ChildSpawnerCommands, vol_idx: usize, delta: i32) {
+    parent.spawn((
+        OptionsVolBtn { vol_idx, delta },
+        Interaction::default(),
+        Node {
+            padding: UiRect::axes(Val::Px(14.0), Val::Px(6.0)),
+            border: UiRect::all(Val::Px(1.5)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BorderColor::all(Color::srgb(0.4, 0.5, 0.9)),
+        BackgroundColor(Color::srgba(0.2, 0.2, 0.5, 0.35)),
+    )).with_children(|b| {
+        b.spawn((
+            Text::new(if delta < 0 { "-" } else { "+" }),
+            TextFont { font_size: 20.0, ..default() },
+            TextColor(Color::srgb(0.8, 0.85, 1.0)),
+        ));
+    });
 }
 
 fn spawn_options_screen(
@@ -617,15 +646,91 @@ fn spawn_options_screen(
         spawn_panel(parent, |panel| {
             spawn_title(panel, "OPTIONS", Color::srgb(0.3, 0.8, 1.0));
 
-            for idx in 0..3usize {
-                let (text, color) = options_item_text(idx, selection.0, &settings);
+            // Строки громкости
+            let labels = ["MUSIC VOLUME", "SFX VOLUME"];
+            let vols   = [settings.music_volume, settings.sfx_volume];
+            for idx in 0..2usize {
+                let selected = selection.0 == idx;
                 panel.spawn((
-                    Text::new(text),
-                    TextFont { font_size: 26.0, ..default() },
-                    TextColor(color),
-                    OptionsItemText(idx),
-                ));
+                    OptionsRow(idx),
+                    Interaction::default(),
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        column_gap: Val::Px(10.0),
+                        padding: UiRect::axes(Val::Px(14.0), Val::Px(10.0)),
+                        width: Val::Px(400.0),
+                        border: if selected { UiRect::all(Val::Px(1.5)) } else { UiRect::ZERO },
+                        ..default()
+                    },
+                    BorderColor::all(if selected {
+                        Color::srgb(0.75, 0.25, 1.0)
+                    } else {
+                        Color::srgba(0.0, 0.0, 0.0, 0.0)
+                    }),
+                    BackgroundColor(if selected {
+                        Color::srgba(0.45, 0.1, 0.65, 0.2)
+                    } else {
+                        Color::srgba(0.0, 0.0, 0.0, 0.0)
+                    }),
+                )).with_children(|row| {
+                    // Метка
+                    row.spawn((
+                        Text::new(labels[idx]),
+                        TextFont { font_size: 20.0, ..default() },
+                        TextColor(Color::srgb(0.75, 0.75, 0.75)),
+                        Node { flex_grow: 1.0, ..default() },
+                    ));
+                    // Кнопка −
+                    spawn_vol_btn(row, idx, -1);
+                    // Значение %
+                    row.spawn((
+                        OptionsVolText(idx),
+                        Text::new(format!("{:3}%", vol_pct(vols[idx]))),
+                        TextFont { font_size: 20.0, ..default() },
+                        TextColor(Color::WHITE),
+                        Node {
+                            min_width: Val::Px(48.0),
+                            justify_content: JustifyContent::Center,
+                            ..default()
+                        },
+                    ));
+                    // Кнопка +
+                    spawn_vol_btn(row, idx, 1);
+                });
             }
+
+            // Строка BACK
+            let selected = selection.0 == 2;
+            panel.spawn((
+                OptionsRow(2),
+                Interaction::default(),
+                Node {
+                    justify_content: JustifyContent::Center,
+                    padding: UiRect::axes(Val::Px(14.0), Val::Px(10.0)),
+                    width: Val::Px(400.0),
+                    border: if selected { UiRect::all(Val::Px(1.5)) } else { UiRect::ZERO },
+                    ..default()
+                },
+                BorderColor::all(if selected {
+                    Color::srgb(0.75, 0.25, 1.0)
+                } else {
+                    Color::srgba(0.0, 0.0, 0.0, 0.0)
+                }),
+                BackgroundColor(if selected {
+                    Color::srgba(0.45, 0.1, 0.65, 0.2)
+                } else {
+                    Color::srgba(0.0, 0.0, 0.0, 0.0)
+                }),
+            )).with_children(|row| {
+                let prefix = if selected { "> " } else { "  " };
+                row.spawn((
+                    Text::new(format!("{}BACK", prefix)),
+                    TextFont { font_size: 24.0, ..default() },
+                    TextColor(if selected { Color::WHITE } else { Color::srgb(0.55, 0.55, 0.55) }),
+                    OptionsItemText(2),
+                ));
+            });
 
             spawn_hint(panel, "[ W/S  Navigate ]  [ LEFT/RIGHT  Adjust ]  [ ESC  Back ]");
         });
@@ -635,15 +740,59 @@ fn spawn_options_screen(
 fn update_options_ui(
     selection: Res<OptionsSelection>,
     settings: Res<AudioSettings>,
-    mut query: Query<(&mut Text, &mut TextColor, &OptionsItemText)>,
+    mut vol_q: Query<(&mut Text, &OptionsVolText)>,
+    mut back_q: Query<(&mut Text, &mut TextColor, &OptionsItemText)>,
+    mut row_q: Query<(&mut Node, &mut BorderColor, &mut BackgroundColor, &OptionsRow)>,
 ) {
     if !selection.is_changed() && !settings.is_changed() {
         return;
     }
-    for (mut text, mut color, item) in &mut query {
-        let (t, c) = options_item_text(item.0, selection.0, &settings);
-        **text = t;
-        color.0 = c;
+    // Обновить значения %
+    let vols = [settings.music_volume, settings.sfx_volume];
+    for (mut text, vol) in &mut vol_q {
+        **text = format!("{:3}%", vol_pct(vols[vol.0]));
+    }
+    // Обновить BACK
+    if let Ok((mut text, mut color, _)) = back_q.single_mut() {
+        let sel = selection.0 == 2;
+        **text = format!("{}BACK", if sel { "> " } else { "  " });
+        color.0 = if sel { Color::WHITE } else { Color::srgb(0.55, 0.55, 0.55) };
+    }
+    // Обновить подсветку строк
+    for (mut node, mut border, mut bg, row) in &mut row_q {
+        let sel = row.0 == selection.0;
+        node.border = if sel { UiRect::all(Val::Px(1.5)) } else { UiRect::ZERO };
+        border.set_all(if sel { Color::srgb(0.75, 0.25, 1.0) } else { Color::srgba(0.0, 0.0, 0.0, 0.0) });
+        bg.0 = if sel { Color::srgba(0.45, 0.1, 0.65, 0.2) } else { Color::srgba(0.0, 0.0, 0.0, 0.0) };
+    }
+}
+
+fn options_mouse_system(
+    mut selection: ResMut<OptionsSelection>,
+    mut settings: ResMut<AudioSettings>,
+    mut next_state: ResMut<NextState<GameState>>,
+    btn_q: Query<(&Interaction, &OptionsVolBtn), Changed<Interaction>>,
+    row_q: Query<(&Interaction, &OptionsRow), Changed<Interaction>>,
+) {
+    // Клики по кнопкам +/-
+    for (interaction, btn) in &btn_q {
+        if *interaction == Interaction::Pressed {
+            let vol = if btn.vol_idx == 0 {
+                &mut settings.music_volume
+            } else {
+                &mut settings.sfx_volume
+            };
+            *vol = (*vol + btn.delta as f32 * 0.1).clamp(0.0, 1.0);
+        }
+    }
+    // Ховер/клик по строкам
+    for (interaction, row) in &row_q {
+        if matches!(interaction, Interaction::Hovered | Interaction::Pressed) {
+            selection.0 = row.0;
+        }
+        if *interaction == Interaction::Pressed && row.0 == 2 {
+            next_state.set(GameState::MainMenu);
+        }
     }
 }
 
