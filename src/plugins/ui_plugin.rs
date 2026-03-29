@@ -514,15 +514,6 @@ fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>) {
                     });
                 }
 
-                // Разделитель
-                center.spawn(Node { height: Val::Px(8.0), ..default() });
-
-                // Подсказка
-                center.spawn((
-                    Text::new("[ W/S or UP/DN: Select ]  [ ENTER: Confirm ]"),
-                    TextFont { font_size: 13.0, ..default() },
-                    TextColor(Color::srgb(0.3, 0.72, 0.9)),
-                ));
             });
 
         });
