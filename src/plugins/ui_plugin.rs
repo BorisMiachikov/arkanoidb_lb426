@@ -1,6 +1,8 @@
+use bevy::app::AppExit;
 use bevy::prelude::*;
 
 use crate::components::bonus_effects::{BallGrowEffect, FireBallEffect, GunPaddleEffect, PaddleGrowEffect, StickyEffect};
+use crate::resources::editor::EditorData;
 use crate::resources::game_state::GameState;
 use crate::resources::score::{AudioSettings, CurrentLevel, HighScore, Lives, MenuSelection, NameInput, OptionsSelection, Paused, Score, ScoreTable};
 
@@ -100,6 +102,7 @@ impl Plugin for UiPlugin {
                 update_highscore_ui,
                 update_pause_overlay,
                 update_menu_selection_ui.run_if(in_state(GameState::MainMenu)),
+                menu_mouse_system.run_if(in_state(GameState::MainMenu)),
                 update_options_ui.run_if(in_state(GameState::Options)),
                 update_enter_name_ui.run_if(in_state(GameState::EnterName)),
             ),
@@ -477,6 +480,7 @@ fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>) {
                     let selected = idx == 0;
                     center.spawn((
                         MenuItemBox(idx),
+                        Interaction::default(),
                         Node {
                             width: Val::Px(300.0),
                             padding: UiRect::axes(Val::Px(18.0), Val::Px(9.0)),
@@ -547,6 +551,42 @@ fn update_menu_selection_ui(
         } else {
             Color::srgba(0.0, 0.0, 0.0, 0.0)
         };
+    }
+}
+
+fn menu_mouse_system(
+    mut selection: ResMut<MenuSelection>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut editor: ResMut<EditorData>,
+    mut score: ResMut<Score>,
+    mut lives: ResMut<Lives>,
+    mut current_level: ResMut<CurrentLevel>,
+    mut app_exit: MessageWriter<AppExit>,
+    query: Query<(&Interaction, &MenuItemBox), Changed<Interaction>>,
+) {
+    for (interaction, item) in &query {
+        match interaction {
+            Interaction::Hovered => {
+                selection.0 = item.0;
+            }
+            Interaction::Pressed => {
+                match item.0 {
+                    0 => {
+                        score.value = 0;
+                        lives.count = 3;
+                        current_level.number = 0;
+                        editor.active = false;
+                        next_state.set(GameState::Playing);
+                    }
+                    1 => next_state.set(GameState::LevelEditor),
+                    2 => next_state.set(GameState::HighScores),
+                    3 => next_state.set(GameState::Options),
+                    4 => { app_exit.write(AppExit::Success); }
+                    _ => {}
+                }
+            }
+            Interaction::None => {}
+        }
     }
 }
 
