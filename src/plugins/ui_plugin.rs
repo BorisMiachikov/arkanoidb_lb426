@@ -740,8 +740,8 @@ fn spawn_options_screen(
 fn update_options_ui(
     selection: Res<OptionsSelection>,
     settings: Res<AudioSettings>,
-    mut vol_q: Query<(&mut Text, &OptionsVolText)>,
-    mut back_q: Query<(&mut Text, &mut TextColor, &OptionsItemText)>,
+    mut vol_q: Query<(&mut Text, &OptionsVolText), Without<OptionsItemText>>,
+    mut back_q: Query<(&mut Text, &mut TextColor, &OptionsItemText), Without<OptionsVolText>>,
     mut row_q: Query<(&mut Node, &mut BorderColor, &mut BackgroundColor, &OptionsRow)>,
 ) {
     if !selection.is_changed() && !settings.is_changed() {
