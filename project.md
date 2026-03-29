@@ -1,11 +1,11 @@
-# Техническое задание: Игра в жанре Arkanoid/Breakout (Rust + Bevy 0.15)
+# Техническое задание: Игра в жанре Arkanoid/Breakout (Rust + Bevy 0.18)
 
 ## 1. Общая информация
 
 **Название проекта:** arkanoidb_lb426
 **Жанр:** Аркада / Breakout
 **Язык разработки:** Rust (stable)
-**Движок:** Bevy 0.15
+**Движок:** Bevy 0.18
 **Физика:** Кастомная (AABB-коллизии, без Rapier)
 **Репозиторий:** https://github.com/BorisMiachikov/arkanoidb_lb426
 
@@ -94,6 +94,8 @@ HUD показывает активные бонусы с оставшимися
 - `0` = пусто
 - `1–6` = Normal (цвета: Blue/Green/Yellow/Orange/Purple/Red)
 - `7–12` = Strong (те же 6 цветов)
+
+Цвет блока **не зависит от номера ряда** — задаётся явно кодом ячейки.
 
 Пользовательские уровни сохраняются в `levels/level_N.lvl` и при старте уровня имеют **приоритет** над встроенными данными. Новые уровни (6, 7, 8...) создаются в редакторе клавишей `N`.
 
@@ -310,6 +312,7 @@ assets/
 - **Камера**: `ScalingMode::AutoMin { min_width: 800.0, min_height: 600.0 }` — виртуальное пространство 800×600, масштабируется под размер окна с letterbox/pillarbox. Окно `resizable: true`.
 - **Release-сборка**: `opt-level="z"`, `lto=true`, `codegen-units=1`, `strip=true` — 54 МБ → 26 МБ.
 - **Физика**: `FixedUpdate` 64 Hz, `dt.min(0.05)` против туннелирования.
+- **Events**: в Bevy 0.18 `EventWriter`/`EventReader` заменены на `MessageWriter`/`MessageReader`; тип деривируется через `#[derive(Message)]`; регистрация через `app.add_message::<T>()`.
 
 ---
 

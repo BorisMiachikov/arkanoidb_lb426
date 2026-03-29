@@ -1,8 +1,8 @@
-# Прогресс разработки: Arkanoid (Rust + Bevy 0.15)
+# Прогресс разработки: Arkanoid (Rust + Bevy 0.18)
 
 ## ✅ Этап 0: Подготовка проекта
 - [x] Rust toolchain (stable)
-- [x] Создан проект (`Cargo.toml`, `bevy = "0.15"`, `rand = "0.8"`)
+- [x] Создан проект (`Cargo.toml`, `bevy = "0.18"`, `rand = "0.8"`)
 - [x] Настроено окно 800×600, фон — тёмно-синий
 - [x] Пустая сцена запускается
 
@@ -104,6 +104,10 @@
 - [x] Таблица рекордов (HIGH SCORES) — топ-10, `scores.dat`, ввод имени
 - [x] Масштабирование игры под размер окна (ScalingMode::AutoMin, окно resizable)
 - [x] Оптимизация размера release-билда: 54 МБ → 26 МБ (lto, strip, opt-level=z)
+- [x] Редактор: цвет (1–6) и тип (T) кисти, 12 рядов, неограниченные уровни (6, 7, 8...)
+- [x] HUD скрыт вне игровых экранов (только Playing / LevelComplete / GameOver)
+- [x] Кодировка блоков: 1–6 Normal (6 цветов), 7–12 Strong (6 цветов)
+- [x] Миграция с Bevy 0.15 → 0.18.1 (Messages API, ChildSpawnerCommands, Projection, и др.)
 - [ ] Боссы
 
 ---
