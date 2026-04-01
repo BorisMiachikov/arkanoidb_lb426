@@ -17,8 +17,9 @@ use crate::systems::gun::{
     fire_gun_system,
 };
 use crate::systems::ufo::{
-    ball_ufo_collision_system, bomb_brick_collision_system, bomb_paddle_collision_system,
-    cleanup_fallen_bombs_system, ufo_brick_collision_system, ufo_movement_system,
+    animate_ufo_system, ball_ufo_collision_system, bomb_brick_collision_system,
+    bomb_paddle_collision_system, cleanup_fallen_bombs_system, ufo_brick_collision_system,
+    ufo_movement_system,
 };
 
 /// Плагин: физика — ввод, движение, коллизии, бонусы
@@ -28,10 +29,13 @@ impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<BallTrailTimer>();
 
-        // Частицы обновляются в Update (не FixedUpdate) — чтобы не превышать лимит chain
+        // Частицы и анимации в Update (не FixedUpdate) — визуальные эффекты
         app.add_systems(
             Update,
-            update_particles_system.run_if(in_state(GameState::Playing)),
+            (
+                update_particles_system,
+                animate_ufo_system,
+            ).run_if(in_state(GameState::Playing)),
         );
 
         // След мяча — FixedUpdate, после движения

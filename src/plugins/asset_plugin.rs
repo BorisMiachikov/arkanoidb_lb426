@@ -27,40 +27,77 @@ impl Plugin for AssetPlugin {
         // Вставляем ресурс немедленно через app.insert_resource() (не deferred),
         // иначе OnEnter(MainMenu) паникует — он срабатывает до flush команд Startup.
         // AssetServer доступен, т.к. DefaultPlugins уже добавлен перед AssetPlugin.
-        let game_assets = {
+        // Загружаем хэндлы изображений/звуков
+        let game_assets_partial = {
             let asset_server = app.world().resource::<AssetServer>();
+            (
+                asset_server.load("sounds/ball_hit.ogg"),
+                asset_server.load("sounds/ball_hit.ogg"),
+                asset_server.load("sounds/brick_hit.ogg"),
+                asset_server.load("sounds/brick_break.ogg"),
+                asset_server.load("sounds/bonus_pickup.ogg"),
+                asset_server.load("sounds/life_lost.ogg"),
+                asset_server.load("sounds/game_over.ogg"),
+                asset_server.load("sounds/bullet_fire.ogg"),
+                asset_server.load("sounds/ufo_hit.ogg"),
+                asset_server.load("sounds/bomb_hit.ogg"),
+                asset_server.load("music/menu.ogg"),
+                asset_server.load("music/gameplay.ogg"),
+                asset_server.load("sprites/padle.png"),
+                asset_server.load::<Image>("sprites/ufo.png"),
+                asset_server.load("sprites/ball.png"),
+                asset_server.load("sprites/ball_fire.png"),
+                asset_server.load("sprites/brick_normal.png"),
+                asset_server.load("sprites/brick_strong.png"),
+                asset_server.load("sprites/brick_strong_hit.png"),
+                asset_server.load("sprites/bullet.png"),
+                asset_server.load("sprites/bomb.png"),
+                asset_server.load("sprites/bonus_paddle_grow.png"),
+                asset_server.load("sprites/bonus_sticky.png"),
+                asset_server.load("sprites/bonus_gun.png"),
+                asset_server.load("sprites/bonus_ball_grow.png"),
+                asset_server.load("sprites/bonus_fireball.png"),
+                asset_server.load("sprites/bonus_multiball.png"),
+                asset_server.load("sprites/Menu_back.png"),
+                asset_server.load("sprites/Field_game.png"),
+                asset_server.load("sprites/Field_game_sat.png"),
+                asset_server.load("sprites/Field_Editor.png"),
+            )
+        };
+
+        // Создаём TextureAtlasLayout для НЛО (4 кадра 60×40 в ряд)
+        let ufo_atlas_layout = {
+            let layout = TextureAtlasLayout::from_grid(UVec2::new(60, 40), 4, 1, None, None);
+            app.world_mut()
+                .resource_mut::<Assets<TextureAtlasLayout>>()
+                .add(layout)
+        };
+
+        let (
+            sound_ball_wall, sound_ball_paddle, sound_ball_brick, sound_brick_break,
+            sound_bonus_pickup, sound_life_lost, sound_game_over, sound_bullet_fire,
+            sound_ufo_hit, sound_bomb_hit, music_menu, music_gameplay,
+            sprite_paddle, sprite_ufo, sprite_ball, sprite_ball_fire,
+            sprite_brick_normal, sprite_brick_strong, sprite_brick_strong_hit,
+            sprite_bullet, sprite_bomb,
+            sprite_bonus_paddle_grow, sprite_bonus_sticky, sprite_bonus_gun,
+            sprite_bonus_ball_grow, sprite_bonus_fireball, sprite_bonus_multiball,
+            bg_menu, bg_game, bg_game_sat, bg_editor,
+        ) = game_assets_partial;
+
+        let game_assets = {
             GameAssets {
-                sound_ball_wall:    asset_server.load("sounds/ball_hit.ogg"),
-                sound_ball_paddle:  asset_server.load("sounds/ball_hit.ogg"),
-                sound_ball_brick:   asset_server.load("sounds/brick_hit.ogg"),
-                sound_brick_break:  asset_server.load("sounds/brick_break.ogg"),
-                sound_bonus_pickup: asset_server.load("sounds/bonus_pickup.ogg"),
-                sound_life_lost:    asset_server.load("sounds/life_lost.ogg"),
-                sound_game_over:    asset_server.load("sounds/game_over.ogg"),
-                sound_bullet_fire:  asset_server.load("sounds/bullet_fire.ogg"),
-                sound_ufo_hit:      asset_server.load("sounds/ufo_hit.ogg"),
-                sound_bomb_hit:     asset_server.load("sounds/bomb_hit.ogg"),
-                music_menu:         asset_server.load("music/menu.ogg"),
-                music_gameplay:     asset_server.load("music/gameplay.ogg"),
-                sprite_paddle:            asset_server.load("sprites/padle.png"),
-                sprite_ball:              asset_server.load("sprites/ball.png"),
-                sprite_ball_fire:         asset_server.load("sprites/ball_fire.png"),
-                sprite_brick_normal:      asset_server.load("sprites/brick_normal.png"),
-                sprite_brick_strong:      asset_server.load("sprites/brick_strong.png"),
-                sprite_brick_strong_hit:  asset_server.load("sprites/brick_strong_hit.png"),
-                sprite_ufo:               asset_server.load("sprites/ufo.png"),
-                sprite_bullet:            asset_server.load("sprites/bullet.png"),
-                sprite_bomb:              asset_server.load("sprites/bomb.png"),
-                sprite_bonus_paddle_grow: asset_server.load("sprites/bonus_paddle_grow.png"),
-                sprite_bonus_sticky:      asset_server.load("sprites/bonus_sticky.png"),
-                sprite_bonus_gun:         asset_server.load("sprites/bonus_gun.png"),
-                sprite_bonus_ball_grow:   asset_server.load("sprites/bonus_ball_grow.png"),
-                sprite_bonus_fireball:    asset_server.load("sprites/bonus_fireball.png"),
-                sprite_bonus_multiball:   asset_server.load("sprites/bonus_multiball.png"),
-                bg_menu:     asset_server.load("sprites/Menu_back.png"),
-                bg_game:     asset_server.load("sprites/Field_game.png"),
-                bg_game_sat: asset_server.load("sprites/Field_game_sat.png"),
-                bg_editor:   asset_server.load("sprites/Field_Editor.png"),
+                sound_ball_wall, sound_ball_paddle, sound_ball_brick, sound_brick_break,
+                sound_bonus_pickup, sound_life_lost, sound_game_over, sound_bullet_fire,
+                sound_ufo_hit, sound_bomb_hit, music_menu, music_gameplay,
+                sprite_paddle,
+                sprite_ball, sprite_ball_fire,
+                sprite_brick_normal, sprite_brick_strong, sprite_brick_strong_hit,
+                sprite_ufo, ufo_atlas_layout,
+                sprite_bullet, sprite_bomb,
+                sprite_bonus_paddle_grow, sprite_bonus_sticky, sprite_bonus_gun,
+                sprite_bonus_ball_grow, sprite_bonus_fireball, sprite_bonus_multiball,
+                bg_menu, bg_game, bg_game_sat, bg_editor,
             }
         };
         app.insert_resource(game_assets);

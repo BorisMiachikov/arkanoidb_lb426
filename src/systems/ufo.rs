@@ -7,13 +7,29 @@ use crate::components::brick::Brick;
 use crate::components::collider::Collider;
 use crate::components::level_entity::LevelEntity;
 use crate::components::paddle::Paddle;
-use crate::components::ufo::Ufo;
+use crate::components::ufo::{Ufo, UfoAnimTimer};
+use crate::resources::assets::GameAssets;
 use crate::components::velocity::Velocity;
 use crate::events::SoundEvent;
 use crate::resources::game_state::GameState;
 use crate::resources::score::Lives;
 use crate::setup::level::{HALF_W, WALL_THICKNESS};
 use crate::systems::particles::spawn_burst;
+
+/// Покадровая анимация спрайта НЛО (4 кадра)
+pub fn animate_ufo_system(
+    time: Res<Time>,
+    mut query: Query<(&mut Sprite, &mut UfoAnimTimer), With<Ufo>>,
+) {
+    for (mut sprite, mut anim) in &mut query {
+        anim.0.tick(time.delta());
+        if anim.0.just_finished() {
+            if let Some(atlas) = &mut sprite.texture_atlas {
+                atlas.index = (atlas.index + 1) % 4;
+            }
+        }
+    }
+}
 
 const UFO_HALF_W: f32 = 30.0;
 const BOMB_SIZE: f32 = 10.0;
@@ -73,6 +89,7 @@ pub fn ball_ufo_collision_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    game_assets: Res<GameAssets>,
     mut ball_query: Query<(&mut Velocity, &mut Transform, &Collider), With<Ball>>,
     mut ufo_query: Query<(Entity, &Transform, &Collider, &mut Ufo), Without<Ball>>,
     mut sound_events: MessageWriter<SoundEvent>,
@@ -126,9 +143,17 @@ pub fn ball_ufo_collision_system(
                     commands.spawn((
                         LevelEntity,
                         Ufo::new(speed, interval),
+                        UfoAnimTimer(Timer::from_seconds(0.15, TimerMode::Repeating)),
                         Collider::new(UFO_W, UFO_H),
-                        Mesh2d(meshes.add(Rectangle::new(UFO_W, UFO_H))),
-                        MeshMaterial2d(materials.add(Color::srgb(0.8, 0.2, 0.8))),
+                        Sprite {
+                            image: game_assets.sprite_ufo.clone(),
+                            texture_atlas: Some(TextureAtlas {
+                                layout: game_assets.ufo_atlas_layout.clone(),
+                                index: 0,
+                            }),
+                            custom_size: Some(Vec2::new(UFO_W, 40.0)),
+                            ..default()
+                        },
                         Transform::from_xyz(0.0, new_y, 1.0),
                     ));
                 }

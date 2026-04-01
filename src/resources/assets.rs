@@ -27,6 +27,7 @@ pub struct GameAssets {
     pub sprite_brick_strong:      Handle<Image>,
     pub sprite_brick_strong_hit:  Handle<Image>,
     pub sprite_ufo:               Handle<Image>,
+    pub ufo_atlas_layout:         Handle<TextureAtlasLayout>,
     pub sprite_bullet:            Handle<Image>,
     pub sprite_bomb:              Handle<Image>,
     pub sprite_bonus_paddle_grow: Handle<Image>,

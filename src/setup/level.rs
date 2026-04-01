@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 use crate::components::ball::{Ball, BallStuck};
 use crate::components::brick::{Brick, BrickType};
-use crate::components::ufo::Ufo;
+use crate::components::ufo::{Ufo, UfoAnimTimer};
 use crate::components::collider::Collider;
 use crate::components::level_entity::LevelEntity;
 use crate::components::paddle::Paddle;
@@ -121,7 +121,7 @@ pub fn spawn_level_entities(
         } else {
             spawn_bricks(&mut commands, &mut meshes, &mut materials, &game_assets, config.grid);
         }
-        spawn_ufos(&mut commands, &mut meshes, &mut materials, config);
+        spawn_ufos(&mut commands, &game_assets, config);
     }
 }
 
@@ -220,8 +220,7 @@ fn spawn_walls(
 
 fn spawn_ufos(
     commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<ColorMaterial>>,
+    game_assets: &Res<GameAssets>,
     config: &LevelConfig,
 ) {
     const UFO_W: f32 = 60.0;
@@ -231,9 +230,17 @@ fn spawn_ufos(
         commands.spawn((
             LevelEntity,
             Ufo::new(config.ufo_speed, config.ufo_bomb_interval),
+            UfoAnimTimer(Timer::from_seconds(0.15, TimerMode::Repeating)),
             Collider::new(UFO_W, UFO_H),
-            Mesh2d(meshes.add(Rectangle::new(UFO_W, UFO_H))),
-            MeshMaterial2d(materials.add(Color::srgb(0.8, 0.2, 0.8))),
+            Sprite {
+                image: game_assets.sprite_ufo.clone(),
+                texture_atlas: Some(TextureAtlas {
+                    layout: game_assets.ufo_atlas_layout.clone(),
+                    index: 0,
+                }),
+                custom_size: Some(Vec2::new(UFO_W, 40.0)),
+                ..default()
+            },
             Transform::from_xyz(x, y, 1.0),
         ));
     }

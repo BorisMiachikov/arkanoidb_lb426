@@ -1,5 +1,9 @@
 use bevy::prelude::*;
 
+/// Таймер покадровой анимации НЛО
+#[derive(Component)]
+pub struct UfoAnimTimer(pub Timer);
+
 /// НЛО — горизонтально движущееся препятствие, сбрасывает бомбы
 #[derive(Component)]
 pub struct Ufo {
