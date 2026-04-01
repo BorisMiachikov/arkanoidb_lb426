@@ -35,4 +35,9 @@ pub struct GameAssets {
     pub sprite_bonus_ball_grow:   Handle<Image>,
     pub sprite_bonus_fireball:    Handle<Image>,
     pub sprite_bonus_multiball:   Handle<Image>,
+    // ── Фоны ─────────────────────────────────────────────────────────────────
+    pub bg_menu:     Handle<Image>,
+    pub bg_game:     Handle<Image>,
+    pub bg_game_sat: Handle<Image>,
+    pub bg_editor:   Handle<Image>,
 }

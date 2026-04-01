@@ -2,9 +2,12 @@ use bevy::app::AppExit;
 use bevy::prelude::*;
 
 use crate::components::bonus_effects::{BallGrowEffect, FireBallEffect, GunPaddleEffect, PaddleGrowEffect, StickyEffect};
+use crate::resources::assets::GameAssets;
 use crate::resources::editor::EditorData;
 use crate::resources::game_state::GameState;
-use crate::resources::score::{AudioSettings, CurrentLevel, HighScore, Lives, MenuSelection, NameInput, OptionsSelection, Paused, Score, ScoreTable};
+use crate::resources::score::{CurrentLevel, HighScore, Lives, MenuSelection, NameInput, OptionsSelection, Paused, Score, ScoreTable};
+use crate::resources::settings::AppSettings;
+use crate::setup::level::{WINDOW_WIDTH, WINDOW_HEIGHT};
 
 // ─── Маркеры HUD ────────────────────────────────────────────────────────────
 
@@ -73,6 +76,10 @@ struct OverlayScreen;
 #[derive(Component)]
 struct PauseOverlay;
 
+/// Маркер фонового спрайта (меню / sat / редактор)
+#[derive(Component)]
+struct BackgroundSprite;
+
 // ─── Плагин ─────────────────────────────────────────────────────────────────
 
 pub struct UiPlugin;
@@ -80,6 +87,16 @@ pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_hud);
+
+        // Фоны
+        app.add_systems(OnEnter(GameState::MainMenu),      spawn_menu_background);
+        app.add_systems(OnEnter(GameState::Playing),       despawn_background);
+        app.add_systems(OnEnter(GameState::LevelEditor),   (despawn_background, spawn_editor_background).chain());
+        app.add_systems(OnExit(GameState::LevelEditor),    despawn_background);
+        app.add_systems(OnEnter(GameState::GameOver),      spawn_sat_background);
+        app.add_systems(OnExit(GameState::GameOver),       despawn_background);
+        app.add_systems(OnEnter(GameState::LevelComplete), spawn_sat_background);
+        app.add_systems(OnExit(GameState::LevelComplete),  despawn_background);
 
         // Главное меню
         app.add_systems(OnEnter(GameState::MainMenu), (reset_menu_selection, spawn_main_menu).chain());
@@ -639,7 +656,7 @@ fn spawn_vol_btn(parent: &mut ChildSpawnerCommands, vol_idx: usize, delta: i32) 
 fn spawn_options_screen(
     mut commands: Commands,
     selection: Res<OptionsSelection>,
-    settings: Res<AudioSettings>,
+    settings: Res<AppSettings>,
 ) {
     let root = spawn_overlay_root(&mut commands);
     commands.entity(root).with_children(|parent| {
@@ -739,7 +756,7 @@ fn spawn_options_screen(
 
 fn update_options_ui(
     selection: Res<OptionsSelection>,
-    settings: Res<AudioSettings>,
+    settings: Res<AppSettings>,
     mut vol_q: Query<(&mut Text, &OptionsVolText), Without<OptionsItemText>>,
     mut back_q: Query<(&mut Text, &mut TextColor, &OptionsItemText), Without<OptionsVolText>>,
     mut row_q: Query<(&mut Node, &mut BorderColor, &mut BackgroundColor, &OptionsRow)>,
@@ -769,7 +786,7 @@ fn update_options_ui(
 
 fn options_mouse_system(
     mut selection: ResMut<OptionsSelection>,
-    mut settings: ResMut<AudioSettings>,
+    mut settings: ResMut<AppSettings>,
     mut next_state: ResMut<NextState<GameState>>,
     btn_q: Query<(&Interaction, &OptionsVolBtn), Changed<Interaction>>,
     row_q: Query<(&Interaction, &OptionsRow), Changed<Interaction>>,
@@ -948,5 +965,44 @@ fn update_pause_overlay(
         for entity in &overlay_query {
             commands.entity(entity).despawn();
         }
+    }
+}
+
+// ─── Фоны ───────────────────────────────────────────────────────────────────
+
+fn spawn_background_sprite(commands: &mut Commands, handle: Handle<Image>) {
+    commands.spawn((
+        BackgroundSprite,
+        Sprite {
+            image: handle,
+            custom_size: Some(Vec2::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
+            ..default()
+        },
+        Transform::from_xyz(0.0, 0.0, -10.0),
+    ));
+}
+
+fn spawn_menu_background(
+    mut commands: Commands,
+    assets: Res<GameAssets>,
+    query: Query<(), With<BackgroundSprite>>,
+) {
+    if !query.is_empty() {
+        return;
+    }
+    spawn_background_sprite(&mut commands, assets.bg_menu.clone());
+}
+
+fn spawn_sat_background(mut commands: Commands, assets: Res<GameAssets>) {
+    spawn_background_sprite(&mut commands, assets.bg_game_sat.clone());
+}
+
+fn spawn_editor_background(mut commands: Commands, assets: Res<GameAssets>) {
+    spawn_background_sprite(&mut commands, assets.bg_editor.clone());
+}
+
+fn despawn_background(mut commands: Commands, query: Query<Entity, With<BackgroundSprite>>) {
+    for entity in &query {
+        commands.entity(entity).despawn();
     }
 }

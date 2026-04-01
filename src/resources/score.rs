@@ -50,19 +50,6 @@ pub struct MenuSelection(pub usize);
 #[derive(Resource, Default)]
 pub struct OptionsSelection(pub usize);
 
-/// Ресурс: настройки громкости
-#[derive(Resource)]
-pub struct AudioSettings {
-    pub music_volume: f32, // 0.0 – 1.0
-    pub sfx_volume: f32,
-}
-
-impl Default for AudioSettings {
-    fn default() -> Self {
-        Self { music_volume: 0.7, sfx_volume: 0.8 }
-    }
-}
-
 /// Одна запись таблицы рекордов
 #[derive(Clone, Debug)]
 pub struct ScoreEntry {

@@ -12,9 +12,10 @@ use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input::ButtonState;
 
 use crate::resources::score::{
-    AudioSettings, CurrentLevel, DebugSkipPending, HighScore, Lives,
+    CurrentLevel, DebugSkipPending, HighScore, Lives,
     MenuSelection, NameInput, OptionsSelection, Paused, Score, ScoreEntry, ScoreTable,
 };
+use crate::resources::settings::AppSettings;
 use crate::setup::level::HALF_H;
 
 /// Главное меню: навигация и выбор
@@ -280,7 +281,7 @@ pub fn handle_options_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
     mut selection: ResMut<OptionsSelection>,
-    mut settings: ResMut<AudioSettings>,
+    mut settings: ResMut<AppSettings>,
 ) {
     if keys.just_pressed(KeyCode::ArrowUp) || keys.just_pressed(KeyCode::KeyW) {
         if selection.0 > 0 { selection.0 -= 1; }

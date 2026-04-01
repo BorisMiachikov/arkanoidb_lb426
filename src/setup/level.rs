@@ -67,6 +67,13 @@ pub fn encode_cell(brick_type: u8, color_idx: usize) -> u8 {
     }
 }
 
+/// Вычислить цвет тени: бледная версия цвета объекта.
+/// На тёмном фоне видна за счёт цвета, но достаточно прозрачна чтобы не перекрывать фон.
+fn shadow_color(base: Color) -> Color {
+    let c = base.to_srgba();
+    Color::srgba(c.red * 0.5, c.green * 0.5, c.blue * 0.5, 0.15)
+}
+
 /// Создаём сущности уровня.
 /// Если EditorData.active — используем кастомную сетку из редактора.
 /// Иначе — берём из LEVELS[CurrentLevel].
@@ -79,7 +86,18 @@ pub fn spawn_level_entities(
     editor_data: Res<EditorData>,
     game_assets: Res<GameAssets>,
 ) {
-    spawn_paddle(&mut commands, &game_assets);
+    // Фон игрового поля
+    commands.spawn((
+        LevelEntity,
+        Sprite {
+            image: game_assets.bg_game.clone(),
+            custom_size: Some(Vec2::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
+            ..default()
+        },
+        Transform::from_xyz(0.0, 0.0, -10.0),
+    ));
+
+    spawn_paddle(&mut commands, &mut meshes, &mut materials, &game_assets);
     spawn_ball(&mut commands, &mut meshes, &mut materials);
     spawn_walls(&mut commands, &mut meshes, &mut materials);
 
@@ -87,7 +105,7 @@ pub fn spawn_level_entities(
         // Кастомный уровень из редактора — без НЛО, базовая скорость
         speed_multiplier.0 = 1.0;
         let grid_refs: Vec<&[u8]> = editor_data.grid.iter().map(|r| r.as_slice()).collect();
-        spawn_bricks(&mut commands, &game_assets, &grid_refs);
+        spawn_bricks(&mut commands, &mut meshes, &mut materials, &game_assets, &grid_refs);
     } else {
         let level_num = current_level.number as usize + 1; // 1-based
         let level_idx = (current_level.number as usize).min(LEVELS.len() - 1);
@@ -99,9 +117,9 @@ pub fn spawn_level_entities(
         let file_grid = load_grid_from_file(&file_path);
         if let Some(grid) = &file_grid {
             let grid_refs: Vec<&[u8]> = grid.iter().map(|r| r.as_slice()).collect();
-            spawn_bricks(&mut commands, &game_assets, &grid_refs);
+            spawn_bricks(&mut commands, &mut meshes, &mut materials, &game_assets, &grid_refs);
         } else {
-            spawn_bricks(&mut commands, &game_assets, config.grid);
+            spawn_bricks(&mut commands, &mut meshes, &mut materials, &game_assets, config.grid);
         }
         spawn_ufos(&mut commands, &mut meshes, &mut materials, config);
     }
@@ -116,8 +134,15 @@ pub fn cleanup_level(mut commands: Commands, query: Query<Entity, With<LevelEnti
 
 fn spawn_paddle(
     commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
     game_assets: &Res<GameAssets>,
 ) {
+    // Тень ракетки: бледный прямоугольник, смещённый вправо-вниз
+    let paddle_shadow_color = Color::srgba(0.3, 0.3, 0.5, 0.15);
+    let shadow_mesh = Mesh2d(meshes.add(Rectangle::new(PADDLE_WIDTH, PADDLE_HEIGHT)));
+    let shadow_mat = MeshMaterial2d(materials.add(paddle_shadow_color));
+
     commands.spawn((
         LevelEntity,
         Paddle::default(),
@@ -128,7 +153,13 @@ fn spawn_paddle(
             ..default()
         },
         Transform::from_xyz(0.0, PADDLE_Y, 1.0),
-    ));
+    )).with_children(|parent| {
+        parent.spawn((
+            shadow_mesh,
+            shadow_mat,
+            Transform::from_xyz(27.0, -27.0, -0.1),
+        ));
+    });
 }
 
 fn spawn_ball(
@@ -136,6 +167,9 @@ fn spawn_ball(
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<ColorMaterial>>,
 ) {
+    // Тень мяча: бледный серо-синий круг, смещённый вправо-вниз
+    let shadow_mesh = Mesh2d(meshes.add(Circle::new(BALL_SIZE / 2.0)));
+    let shadow_mat = MeshMaterial2d(materials.add(Color::srgba(0.4, 0.4, 0.6, 0.15)));
     commands.spawn((
         LevelEntity,
         Ball::default(),
@@ -145,7 +179,13 @@ fn spawn_ball(
         Mesh2d(meshes.add(Circle::new(BALL_SIZE / 2.0))),
         MeshMaterial2d(materials.add(Color::from(css::WHITE))),
         Transform::from_xyz(0.0, PADDLE_Y + PADDLE_HEIGHT + BALL_SIZE, 1.0),
-    ));
+    )).with_children(|parent| {
+        parent.spawn((
+            shadow_mesh,
+            shadow_mat,
+            Transform::from_xyz(27.0, -27.0, -0.1),
+        ));
+    });
 }
 
 fn spawn_walls(
@@ -201,6 +241,8 @@ fn spawn_ufos(
 
 fn spawn_bricks(
     commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
     game_assets: &Res<GameAssets>,
     grid: &[&[u8]],
 ) {
@@ -209,6 +251,9 @@ fn spawn_bricks(
     let start_x = -total_w / 2.0 + BRICK_WIDTH / 2.0;
     let step_x = BRICK_WIDTH + BRICK_GAP;
     let step_y = BRICK_HEIGHT + BRICK_GAP;
+
+    // Один меш для всех теней блоков — переиспользуем хэндл
+    let shadow_mesh_handle = meshes.add(Rectangle::new(BRICK_WIDTH, BRICK_HEIGHT));
 
     for (row, row_data) in grid.iter().enumerate() {
         let y = BRICKS_TOP_Y - row as f32 * step_y;
@@ -222,6 +267,9 @@ fn spawn_bricks(
                 _ => (BrickType::Normal, 1u32, 100u32, game_assets.sprite_brick_normal.clone()),
             };
 
+            // Тень: Mesh2d прямоугольник с затемнённым цветом блока
+            let shad_mat = MeshMaterial2d(materials.add(shadow_color(color)));
+
             commands.spawn((
                 LevelEntity,
                 Brick { brick_type, health, score_value },
@@ -233,7 +281,13 @@ fn spawn_bricks(
                     ..default()
                 },
                 Transform::from_xyz(x, y, 0.5),
-            ));
+            )).with_children(|parent| {
+                parent.spawn((
+                    Mesh2d(shadow_mesh_handle.clone()),
+                    shad_mat,
+                    Transform::from_xyz(27.0, -27.0, -0.1),
+                ));
+            });
         }
     }
 }

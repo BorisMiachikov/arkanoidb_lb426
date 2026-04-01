@@ -4,7 +4,7 @@ use bevy::audio::{PlaybackSettings, Volume};
 use crate::events::SoundEvent;
 use crate::resources::assets::GameAssets;
 use crate::resources::game_state::GameState;
-use crate::resources::score::AudioSettings;
+use crate::resources::settings::AppSettings;
 
 /// Маркер музыки главного меню
 #[derive(Component)]
@@ -57,6 +57,10 @@ impl Plugin for AssetPlugin {
                 sprite_bonus_ball_grow:   asset_server.load("sprites/bonus_ball_grow.png"),
                 sprite_bonus_fireball:    asset_server.load("sprites/bonus_fireball.png"),
                 sprite_bonus_multiball:   asset_server.load("sprites/bonus_multiball.png"),
+                bg_menu:     asset_server.load("sprites/Menu_back.png"),
+                bg_game:     asset_server.load("sprites/Field_game.png"),
+                bg_game_sat: asset_server.load("sprites/Field_game_sat.png"),
+                bg_editor:   asset_server.load("sprites/Field_Editor.png"),
             }
         };
         app.insert_resource(game_assets);
@@ -136,7 +140,7 @@ fn stop_gameplay_music(
 fn music_control_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut enabled: ResMut<MusicEnabled>,
-    settings: Res<AudioSettings>,
+    settings: Res<AppSettings>,
     mut sinks: Query<&mut AudioSink, Or<(With<MusicController>, With<MenuMusicController>)>>,
 ) {
     if keys.just_pressed(KeyCode::F2) {
@@ -159,7 +163,7 @@ fn play_sounds_system(
     mut commands: Commands,
     mut events: MessageReader<SoundEvent>,
     assets: Res<GameAssets>,
-    settings: Res<AudioSettings>,
+    settings: Res<AppSettings>,
 ) {
     let sfx_settings = PlaybackSettings {
         volume: Volume::Linear(settings.sfx_volume),

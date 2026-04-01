@@ -2,9 +2,10 @@ use bevy::prelude::*;
 
 use crate::resources::game_state::GameState;
 use crate::resources::score::{
-    AudioSettings, BallSpeedMultiplier, CurrentLevel, DebugSkipPending, HighScore,
+    BallSpeedMultiplier, CurrentLevel, DebugSkipPending, HighScore,
     Lives, MenuSelection, NameInput, OptionsSelection, Paused, Score, ScoreTable,
 };
+use crate::resources::settings::{save_settings_on_change, sync_window_size_system};
 use crate::systems::gameplay::{
     check_ball_lost_system, check_win_condition_system, debug_auto_advance_system,
     debug_skip_level_system, handle_enter_name_system, handle_game_over_system,
@@ -25,7 +26,6 @@ impl Plugin for GameplayPlugin {
         app.init_resource::<Paused>();
         app.init_resource::<MenuSelection>();
         app.init_resource::<OptionsSelection>();
-        app.init_resource::<AudioSettings>();
         app.init_resource::<NameInput>();
         app.insert_resource(ScoreTable::load());
         app.insert_resource(HighScore::load());
@@ -81,5 +81,8 @@ impl Plugin for GameplayPlugin {
             (debug_auto_advance_system, handle_level_complete_system)
                 .run_if(in_state(GameState::LevelComplete)),
         );
+
+        // Отслеживаем изменение размера окна и сохраняем настройки при изменениях
+        app.add_systems(Update, (sync_window_size_system, save_settings_on_change).chain());
     }
 }
