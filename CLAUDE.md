@@ -218,6 +218,7 @@ BRICKS_TOP_Y = 170.0  (центр верхнего ряда; блоки зани
 
 ```
 assets/
+├── fonts/    PressStart2P-Regular.ttf  ← пиксельный шрифт UI (загружается в GameAssets.font_ui)
 ├── music/    menu.ogg, gameplay.ogg
 ├── sounds/   ball_hit.ogg, brick_hit.ogg, brick_break.ogg, bonus_pickup.ogg,
 │             life_lost.ogg, game_over.ogg, bullet_fire.ogg, ufo_hit.ogg, bomb_hit.ogg
@@ -226,11 +227,13 @@ assets/
               brick_strong_hit.png, ufo.png, bullet.png, bomb.png, bonus_*.png ×6
 ```
 
+Спецификация спрайтов (размеры, форматы): `docs/sprites_spec.md`.
+
 **Спрайты vs Mesh2d:** ракетка и блоки (Normal/Strong/Strong-hit) используют `Sprite`. Мяч, стены, НЛО, бонусы, пуля, бомба, частицы — `Mesh2d`.
 
 **UI-изображения:** использовать `ImageNode`, не `Sprite`.
 
-**Шрифт:** Bevy дефолтный шрифт поддерживает только ASCII — весь UI-текст должен быть на латинице. Для Кириллицы нужен TTF-файл в `assets/fonts/` с явной передачей в `TextFont { font: asset_server.load("fonts/..."), .. }`.
+**Шрифт UI:** весь UI использует пиксельный шрифт `PressStart2P-Regular.ttf`, загруженный в `GameAssets.font_ui`. Использовать через хелпер `tf(font, size)` в `ui_plugin.rs`. Весь UI-текст — на **ASCII/латинице** (шрифт не поддерживает кириллицу).
 
 **Выход из приложения:** `use bevy::app::AppExit;` → `MessageWriter<AppExit>` → `app_exit.write(AppExit::Success)`.
 

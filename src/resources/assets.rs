@@ -41,4 +41,6 @@ pub struct GameAssets {
     pub bg_game:     Handle<Image>,
     pub bg_game_sat: Handle<Image>,
     pub bg_editor:   Handle<Image>,
+    // ── Шрифт UI ─────────────────────────────────────────────────────────────
+    pub font_ui: Handle<Font>,
 }

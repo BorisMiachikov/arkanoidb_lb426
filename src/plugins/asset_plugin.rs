@@ -62,6 +62,7 @@ impl Plugin for AssetPlugin {
                 asset_server.load("sprites/Field_game.png"),
                 asset_server.load("sprites/Field_game_sat.png"),
                 asset_server.load("sprites/Field_Editor.png"),
+                asset_server.load("fonts/PressStart2P-Regular.ttf"),
             )
         };
 
@@ -83,6 +84,7 @@ impl Plugin for AssetPlugin {
             sprite_bonus_paddle_grow, sprite_bonus_sticky, sprite_bonus_gun,
             sprite_bonus_ball_grow, sprite_bonus_fireball, sprite_bonus_multiball,
             bg_menu, bg_game, bg_game_sat, bg_editor,
+            font_ui,
         ) = game_assets_partial;
 
         let game_assets = {
@@ -98,6 +100,7 @@ impl Plugin for AssetPlugin {
                 sprite_bonus_paddle_grow, sprite_bonus_sticky, sprite_bonus_gun,
                 sprite_bonus_ball_grow, sprite_bonus_fireball, sprite_bonus_multiball,
                 bg_menu, bg_game, bg_game_sat, bg_editor,
+                font_ui,
             }
         };
         app.insert_resource(game_assets);

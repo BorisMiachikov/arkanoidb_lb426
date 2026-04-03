@@ -256,7 +256,7 @@ ScoreTable { entries: Vec<ScoreEntry> }  — топ-10, сохранение в 
 NameInput { text: String }               — буферный ввод имени в EnterName
 DebugSkipPending, Paused, MenuSelection, OptionsSelection
 AudioSettings { music_volume, sfx_volume }  — управляется в Options
-GameAssets (все Handle<AudioSource> и Handle<Image>)
+GameAssets (все Handle<AudioSource>, Handle<Image> ×15, Handle<Font> font_ui)
 MusicEnabled(bool)  — F2
 EditorData          — данные редактора уровней
 ```
@@ -294,6 +294,7 @@ src/
 
 ```
 assets/
+├── fonts/    PressStart2P-Regular.ttf  ← пиксельный шрифт UI (GameAssets.font_ui)
 ├── music/    menu.ogg, gameplay.ogg
 ├── sounds/   ball_hit.ogg, brick_hit.ogg, brick_break.ogg, bonus_pickup.ogg,
 │             life_lost.ogg, game_over.ogg, bullet_fire.ogg, ufo_hit.ogg, bomb_hit.ogg
@@ -301,6 +302,8 @@ assets/
               brick_normal.png, brick_strong.png, brick_strong_hit.png,
               ufo.png, bullet.png, bomb.png, bonus_*.png ×6
 ```
+
+Спецификация спрайтов (размеры, форматы): `docs/sprites_spec.md`.
 
 Отсутствующие файлы не крашат игру — Bevy загружает асинхронно.
 Ракетка и блоки используют `Sprite`; остальные объекты — `Mesh2d`.

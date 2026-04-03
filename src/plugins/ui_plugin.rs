@@ -161,7 +161,13 @@ fn update_hud_visibility(
     }
 }
 
-fn setup_hud(mut commands: Commands) {
+/// Хелпер: создаёт TextFont с пиксельным шрифтом
+fn tf(font: &Handle<Font>, size: f32) -> TextFont {
+    TextFont { font: font.clone(), font_size: size, ..default() }
+}
+
+fn setup_hud(mut commands: Commands, assets: Res<GameAssets>) {
+    let font = &assets.font_ui;
     commands
         .spawn((
         HudRoot,
@@ -179,25 +185,25 @@ fn setup_hud(mut commands: Commands) {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::SpaceBetween,
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
+                padding: UiRect::axes(Val::Px(12.0), Val::Px(8.0)),
                 ..default()
             })
             .with_children(|row| {
                 row.spawn((
                     Text::new("SCORE: 0"),
-                    TextFont { font_size: 18.0, ..default() },
+                    tf(font, 13.0),
                     TextColor(Color::WHITE),
                     ScoreText,
                 ));
                 row.spawn((
                     Text::new("LEVEL: 1"),
-                    TextFont { font_size: 18.0, ..default() },
+                    tf(font, 13.0),
                     TextColor(Color::srgb(0.9, 0.9, 0.3)),
                     LevelText,
                 ));
                 row.spawn((
                     Text::new("BEST: 0"),
-                    TextFont { font_size: 18.0, ..default() },
+                    tf(font, 13.0),
                     TextColor(Color::srgb(1.0, 0.8, 0.2)),
                     HighScoreText,
                 ));
@@ -226,7 +232,7 @@ fn setup_hud(mut commands: Commands) {
             .with_children(|row| {
                 row.spawn((
                     Text::new(""),
-                    TextFont { font_size: 14.0, ..default() },
+                    tf(font, 10.0),
                     TextColor(Color::srgb(0.4, 1.0, 0.4)),
                     ActiveBonusText,
                 ));
@@ -376,26 +382,26 @@ fn spawn_panel(parent: &mut ChildSpawnerCommands, children: impl FnOnce(&mut Chi
         .with_children(children);
 }
 
-fn spawn_title(parent: &mut ChildSpawnerCommands, text: &str, color: Color) {
+fn spawn_title(parent: &mut ChildSpawnerCommands, text: &str, color: Color, font: &Handle<Font>) {
     parent.spawn((
         Text::new(text),
-        TextFont { font_size: 52.0, ..default() },
+        tf(font, 28.0),
         TextColor(color),
     ));
 }
 
-fn spawn_subtitle(parent: &mut ChildSpawnerCommands, text: &str) {
+fn spawn_subtitle(parent: &mut ChildSpawnerCommands, text: &str, font: &Handle<Font>) {
     parent.spawn((
         Text::new(text),
-        TextFont { font_size: 22.0, ..default() },
+        tf(font, 14.0),
         TextColor(Color::srgb(0.8, 0.8, 0.8)),
     ));
 }
 
-fn spawn_hint(parent: &mut ChildSpawnerCommands, text: &str) {
+fn spawn_hint(parent: &mut ChildSpawnerCommands, text: &str, font: &Handle<Font>) {
     parent.spawn((
         Text::new(text),
-        TextFont { font_size: 16.0, ..default() },
+        tf(font, 9.0),
         TextColor(Color::srgb(0.55, 0.55, 0.55)),
     ));
 }
@@ -462,7 +468,8 @@ fn spawn_deco_column(
 }
 
 // Главное меню
-fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>) {
+fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>, assets: Res<GameAssets>) {
+    let font = &assets.font_ui;
     let best = highscore.value;
     let root = spawn_overlay_root(&mut commands);
     commands.entity(root).with_children(|screen| {
@@ -489,19 +496,19 @@ fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>) {
                 // Заголовок
                 center.spawn((
                     Text::new("ARKANOID"),
-                    TextFont { font_size: 62.0, ..default() },
+                    tf(font, 36.0),
                     TextColor(Color::srgb(0.15, 0.9, 1.0)),
                 ));
 
                 // Рекорд
                 let best_text = if best > 0 {
-                    format!("Best Score: {}", best)
+                    format!("BEST: {}", best)
                 } else {
-                    "Best Score: ---".to_string()
+                    "BEST: ---".to_string()
                 };
                 center.spawn((
                     Text::new(best_text),
-                    TextFont { font_size: 17.0, ..default() },
+                    tf(font, 12.0),
                     TextColor(Color::srgb(0.35, 0.85, 1.0)),
                 ));
 
@@ -540,7 +547,7 @@ fn spawn_main_menu(mut commands: Commands, highscore: Res<HighScore>) {
                         let prefix = if selected { "> " } else { "  " };
                         item.spawn((
                             Text::new(format!("{}{}", prefix, label)),
-                            TextFont { font_size: 24.0, ..default() },
+                            tf(font, 16.0),
                             TextColor(if selected {
                                 Color::WHITE
                             } else {
@@ -631,7 +638,7 @@ fn reset_options_selection(mut selection: ResMut<OptionsSelection>) {
 
 fn vol_pct(v: f32) -> u32 { (v * 100.0).round() as u32 }
 
-fn spawn_vol_btn(parent: &mut ChildSpawnerCommands, vol_idx: usize, delta: i32) {
+fn spawn_vol_btn(parent: &mut ChildSpawnerCommands, vol_idx: usize, delta: i32, font: &Handle<Font>) {
     parent.spawn((
         OptionsVolBtn { vol_idx, delta },
         Interaction::default(),
@@ -647,7 +654,7 @@ fn spawn_vol_btn(parent: &mut ChildSpawnerCommands, vol_idx: usize, delta: i32) 
     )).with_children(|b| {
         b.spawn((
             Text::new(if delta < 0 { "-" } else { "+" }),
-            TextFont { font_size: 20.0, ..default() },
+            tf(font, 16.0),
             TextColor(Color::srgb(0.8, 0.85, 1.0)),
         ));
     });
@@ -657,11 +664,13 @@ fn spawn_options_screen(
     mut commands: Commands,
     selection: Res<OptionsSelection>,
     settings: Res<AppSettings>,
+    assets: Res<GameAssets>,
 ) {
+    let font = &assets.font_ui;
     let root = spawn_overlay_root(&mut commands);
     commands.entity(root).with_children(|parent| {
         spawn_panel(parent, |panel| {
-            spawn_title(panel, "OPTIONS", Color::srgb(0.3, 0.8, 1.0));
+            spawn_title(panel, "OPTIONS", Color::srgb(0.3, 0.8, 1.0), font);
 
             // Строки громкости
             let labels = ["MUSIC VOLUME", "SFX VOLUME"];
@@ -694,17 +703,17 @@ fn spawn_options_screen(
                     // Метка
                     row.spawn((
                         Text::new(labels[idx]),
-                        TextFont { font_size: 20.0, ..default() },
+                        tf(font, 13.0),
                         TextColor(Color::srgb(0.75, 0.75, 0.75)),
                         Node { flex_grow: 1.0, ..default() },
                     ));
                     // Кнопка −
-                    spawn_vol_btn(row, idx, -1);
+                    spawn_vol_btn(row, idx, -1, font);
                     // Значение %
                     row.spawn((
                         OptionsVolText(idx),
                         Text::new(format!("{:3}%", vol_pct(vols[idx]))),
-                        TextFont { font_size: 20.0, ..default() },
+                        tf(font, 13.0),
                         TextColor(Color::WHITE),
                         Node {
                             min_width: Val::Px(48.0),
@@ -713,7 +722,7 @@ fn spawn_options_screen(
                         },
                     ));
                     // Кнопка +
-                    spawn_vol_btn(row, idx, 1);
+                    spawn_vol_btn(row, idx, 1, font);
                 });
             }
 
@@ -743,13 +752,13 @@ fn spawn_options_screen(
                 let prefix = if selected { "> " } else { "  " };
                 row.spawn((
                     Text::new(format!("{}BACK", prefix)),
-                    TextFont { font_size: 24.0, ..default() },
+                    tf(font, 16.0),
                     TextColor(if selected { Color::WHITE } else { Color::srgb(0.55, 0.55, 0.55) }),
                     OptionsItemText(2),
                 ));
             });
 
-            spawn_hint(panel, "[ W/S  Navigate ]  [ LEFT/RIGHT  Adjust ]  [ ESC  Back ]");
+            spawn_hint(panel, "[ W/S  Navigate ]  [ LEFT/RIGHT  Adjust ]  [ ESC  Back ]", font);
         });
     });
 }
@@ -815,32 +824,33 @@ fn options_mouse_system(
 
 // ─── High Scores ────────────────────────────────────────────────────────────
 
-fn spawn_highscores_screen(mut commands: Commands, score_table: Res<ScoreTable>) {
+fn spawn_highscores_screen(mut commands: Commands, score_table: Res<ScoreTable>, assets: Res<GameAssets>) {
+    let font = &assets.font_ui;
     let root = spawn_overlay_root(&mut commands);
     commands.entity(root).with_children(|parent| {
         spawn_panel(parent, |panel| {
-            spawn_title(panel, "HIGH SCORES", Color::srgb(1.0, 0.8, 0.2));
+            spawn_title(panel, "HIGH SCORES", Color::srgb(1.0, 0.8, 0.2), font);
 
             if score_table.entries.is_empty() {
-                spawn_subtitle(panel, "No scores yet. Be the first!");
+                spawn_subtitle(panel, "No scores yet. Be the first!", font);
             } else {
                 for (i, entry) in score_table.entries.iter().enumerate() {
                     let color = match i {
-                        0 => Color::srgb(1.0, 0.85, 0.1),  // золото
-                        1 => Color::srgb(0.85, 0.85, 0.85), // серебро
-                        2 => Color::srgb(0.9, 0.6, 0.3),    // бронза
+                        0 => Color::srgb(1.0, 0.85, 0.1),
+                        1 => Color::srgb(0.85, 0.85, 0.85),
+                        2 => Color::srgb(0.9, 0.6, 0.3),
                         _ => Color::srgb(0.65, 0.65, 0.65),
                     };
                     let text = format!("{:2}.  {:<12}{:>7}", i + 1, entry.name, entry.score);
                     panel.spawn((
                         Text::new(text),
-                        TextFont { font_size: 20.0, ..default() },
+                        tf(font, 12.0),
                         TextColor(color),
                     ));
                 }
             }
 
-            spawn_hint(panel, "[ ENTER / ESC  Back ]");
+            spawn_hint(panel, "[ ENTER / ESC  Back ]", font);
         });
     });
 }
@@ -851,22 +861,24 @@ fn spawn_enter_name_screen(
     mut commands: Commands,
     score: Res<Score>,
     name_input: Res<NameInput>,
+    assets: Res<GameAssets>,
 ) {
+    let font = &assets.font_ui;
     let root = spawn_overlay_root(&mut commands);
     commands.entity(root).with_children(|parent| {
         spawn_panel(parent, |panel| {
-            spawn_title(panel, "NEW HIGH SCORE!", Color::srgb(1.0, 0.9, 0.2));
-            spawn_subtitle(panel, &format!("Score: {}", score.value));
+            spawn_title(panel, "NEW HIGH SCORE!", Color::srgb(1.0, 0.9, 0.2), font);
+            spawn_subtitle(panel, &format!("Score: {}", score.value), font);
 
             panel.spawn((
                 Text::new(format!("> {}_", name_input.text)),
-                TextFont { font_size: 28.0, ..default() },
+                tf(font, 18.0),
                 TextColor(Color::WHITE),
                 EnterNameText,
             ));
 
-            spawn_hint(panel, "[ Letters & digits - max 10 chars ]");
-            spawn_hint(panel, "[ ENTER  Save ]  [ ESC  Skip ]");
+            spawn_hint(panel, "[ Letters & digits - max 10 chars ]", font);
+            spawn_hint(panel, "[ ENTER  Save ]  [ ESC  Skip ]", font);
         });
     });
 }
@@ -887,7 +899,9 @@ fn spawn_game_over(
     score: Res<Score>,
     highscore: Res<HighScore>,
     score_table: Res<ScoreTable>,
+    assets: Res<GameAssets>,
 ) {
+    let font = &assets.font_ui;
     let score_val = score.value;
     let best = highscore.value;
     let is_new_record = score_val > 0 && score_val >= best;
@@ -895,17 +909,17 @@ fn spawn_game_over(
     let root = spawn_overlay_root(&mut commands);
     commands.entity(root).with_children(|parent| {
         spawn_panel(parent, |panel| {
-            spawn_title(panel, "GAME OVER", Color::srgb(1.0, 0.25, 0.25));
-            spawn_subtitle(panel, &format!("Score: {}", score_val));
+            spawn_title(panel, "GAME OVER", Color::srgb(1.0, 0.25, 0.25), font);
+            spawn_subtitle(panel, &format!("Score: {}", score_val), font);
             if is_new_record {
-                spawn_subtitle(panel, "*** NEW RECORD! ***");
+                spawn_subtitle(panel, "*** NEW RECORD! ***", font);
             } else if best > 0 {
-                spawn_hint(panel, &format!("Best: {}", best));
+                spawn_hint(panel, &format!("Best: {}", best), font);
             }
             if qualifies {
-                spawn_hint(panel, "[ ENTER - Add to High Scores ]  [ ESC - Menu ]");
+                spawn_hint(panel, "[ ENTER - Add to High Scores ]  [ ESC - Menu ]", font);
             } else {
-                spawn_hint(panel, "[ ENTER - Restart ]  [ ESC - Menu ]");
+                spawn_hint(panel, "[ ENTER - Restart ]  [ ESC - Menu ]", font);
             }
         });
     });
@@ -916,15 +930,17 @@ fn spawn_level_complete(
     mut commands: Commands,
     score: Res<Score>,
     current_level: Res<CurrentLevel>,
+    assets: Res<GameAssets>,
 ) {
+    let font = &assets.font_ui;
     let score_val = score.value;
     let level_num = current_level.number + 1;
     let root = spawn_overlay_root(&mut commands);
     commands.entity(root).with_children(|parent| {
         spawn_panel(parent, |panel| {
-            spawn_title(panel, "LEVEL COMPLETE!", Color::srgb(0.3, 1.0, 0.4));
-            spawn_subtitle(panel, &format!("Level {}  |  Score: {}", level_num, score_val));
-            spawn_hint(panel, "[ ENTER - Next Level ]");
+            spawn_title(panel, "LEVEL COMPLETE!", Color::srgb(0.3, 1.0, 0.4), font);
+            spawn_subtitle(panel, &format!("Level {}  |  Score: {}", level_num, score_val), font);
+            spawn_hint(panel, "[ ENTER - Next Level ]", font);
         });
     });
 }
@@ -936,7 +952,9 @@ fn update_pause_overlay(
     paused: Res<Paused>,
     overlay_query: Query<Entity, With<PauseOverlay>>,
     state: Res<State<GameState>>,
+    assets: Res<GameAssets>,
 ) {
+    let font = &assets.font_ui;
     if !paused.is_changed() {
         return;
     }
@@ -957,8 +975,8 @@ fn update_pause_overlay(
             ))
             .with_children(|parent| {
                 spawn_panel(parent, |panel| {
-                    spawn_title(panel, "PAUSE", Color::srgb(0.9, 0.9, 0.3));
-                    spawn_hint(panel, "[ ESC  Resume ]  [ ESC x2  Main Menu ]");
+                    spawn_title(panel, "PAUSE", Color::srgb(0.9, 0.9, 0.3), font);
+                    spawn_hint(panel, "[ ESC  Resume ]  [ ESC x2  Main Menu ]", font);
                 });
             });
     } else {
